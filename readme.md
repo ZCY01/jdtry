@@ -2,7 +2,7 @@
 本拓展自动获取所有可申请的商品，并可一键申请指定的试用商品。
 
 ## 界面截图
-![1.png](quiver-image-url/F6DAF232AEBD8040A9B43EBDBE95AA62.png =1131x520)
+![界面](./img/interface.png)
 
 ## 主要功能
 * 获取关注商铺数量
