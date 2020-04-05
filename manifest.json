@@ -26,7 +26,6 @@
 	// 权限申请
 	"permissions": [
 		"*://*.jd.com/*",
-		"*://*.jd.hk/*",
 		"notifications",
 		"storage",
 		"alarms"
