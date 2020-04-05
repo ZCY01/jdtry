@@ -82,7 +82,7 @@ export function updateActivityItemsStatus(activityId) {
 		if (updated) {
 			console.log(`${activityId} status set to appyied`);
 		}
-		else {
+		else if(typeof (activityId) !== 'number'){
 			console.warn(`can not find ${activityId} activity, remember that id is Number, ${typeof (activityId)}`);
 		}
 	})
