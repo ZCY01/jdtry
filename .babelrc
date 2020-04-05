@@ -1,0 +1,31 @@
+{
+	"presets": [
+		[
+			"env",
+			{
+				"targets": {
+					"browsers": [
+						"last 5 Chrome version"
+					]
+				}
+			}
+		]
+	],
+	"plugins": [
+		[
+			"transform-runtime",
+			{
+				"polyfill": false,
+				"regenerator": true
+			}
+		],
+		[
+			"import",
+			{
+				"libraryName": "vant",
+				"libraryDirectory": "es",
+				"style": true
+			}
+		]
+	]
+}
