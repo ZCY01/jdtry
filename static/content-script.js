@@ -32,9 +32,7 @@ function checkLoginStatus() {
 
 
 function getNewActivityList(loginStatus) {
-	if (!window.location.href.startsWith('https://try.jd.com/activity/getActivityList')) {
-		return
-	}
+
 	let activityList = []
 	document.querySelectorAll('.try-item').forEach(activity => {
 		let link = activity.querySelector('.link')
@@ -150,10 +148,6 @@ async function clickApplyBtn(activityId) {
 	return dealWithDialogAlert(result.innerText)
 }
 async function activityApply(loginStatus) {
-	if (window.location.href.search(/http[s]:\/\/try.jd.com\/\d*\.html/) < 0) {
-		return
-	}
-
 	const activityId = parseActivityId(window.location.href)
 
 	let destoryIframeMsg = (status = false, success = false) => {
@@ -195,9 +189,6 @@ async function activityApply(loginStatus) {
 }
 
 function getSuccessActivityList(loginStatus) {
-	if (window.location.href.search(/http[s]:\/\/try.jd.com\/user\/myTrial\?page=\d*&selected=2/) < 0) {
-		return
-	}
 	if (!loginStatus) {
 		return
 	}
@@ -283,9 +274,6 @@ async function emptyFollowVenderListOpt() {
 }
 //清理完，这个网站好像会自动 reload...
 async function emptyFollowVenderList(loginStatus) {
-	if (window.location.href !== 'https://t.jd.com/vender/followVenderList.action') {
-		return
-	}
 	if (!loginStatus) {
 		return
 	}
@@ -308,9 +296,6 @@ async function emptyFollowVenderList(loginStatus) {
 }
 
 async function getFollowNumber(loginStatus) {
-	if (window.location.href !== 'https://t.jd.com/vender/followVenderList.action?index=1') {
-		return
-	}
 	if (!loginStatus) {
 		return
 	}
@@ -335,18 +320,28 @@ window.onload = () => {
 
 	setTimeout(() => {
 
-		const openByBrowser = self === top // 用于标示 是浏览器打开还是脚本试用iframe打开
+		const openByBrowser = self === top // 用于标示 是浏览器打开还是脚本使用iframe打开
 		const loginStatus = checkLoginStatus()
 		if (openByBrowser) {
 			console.log('浏览器打开，不进行任何操作')
 			return
 		}
-		getFollowNumber(loginStatus)
-		emptyFollowVenderList(loginStatus)
-
-		getNewActivityList(loginStatus) // 不用登录也可以获取
-		getSuccessActivityList(loginStatus)
-		activityApply(loginStatus)
+		const HREF = window.location.href
+		if (HREF === 'https://t.jd.com/vender/followVenderList.action?index=1') {
+			getFollowNumber(loginStatus)
+		}
+		if (HREF === 'https://t.jd.com/vender/followVenderList.action') {
+			emptyFollowVenderList(loginStatus)
+		}
+		if (HREF.startsWith('https://try.jd.com/activity/getActivityList')) {
+			getNewActivityList(loginStatus) // 不用登录也可以获取
+		}
+		if (HREF.search(/http[s]:\/\/try.jd.com\/user\/myTrial\?page=\d*&selected=2/) >= 0) {
+			getSuccessActivityList(loginStatus)
+		}
+		if (HREF.search(/http[s]:\/\/try.jd.com\/\d*\.html/) >= 0) {
+			activityApply(loginStatus)
+		}
 
 	}, 4000)
 
