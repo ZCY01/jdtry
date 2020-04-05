@@ -22,7 +22,7 @@ window.saveinfo = {
 	date: 0,
 }
 function savePersistentData(){
-	storage.set({ loginStatus: loginStatus })
+	// storage.set({ loginStatus: loginStatus })  //当浏览器关闭时，cookies 可能会失效，不再保存loginStatus
 	storage.set({ saveinfo: saveinfo })
 }
 chrome.runtime.onInstalled.addListener(function (object) {
@@ -336,7 +336,7 @@ function checkAndResetSaveInfo() {
 window.onload = () => {
 	console.log(`${new Date()} background.js load`)
 	storage.get({ saveinfo: saveinfo }).then(res => saveinfo = res.saveinfo).then(checkAndResetSaveInfo)
-	storage.get({ loginStatus: loginStatus }).then(res => loginStatus = res.loginStatus)
+	// storage.get({ loginStatus: loginStatus }).then(res => loginStatus = res.loginStatus)
 	chrome.alarms.clearAll()
 	chrome.alarms.create('cycle', {
 		periodInMinutes: 30
