@@ -318,7 +318,8 @@ window.emptyFollowVenderList = async function () {
 }
 
 window.checkLoginStatusValid = async function () {
-	if (Date.now() > loginStatus.timestamp + 30 * 60 * 1000) {//半小时
+	if (loginStatus.status !== USER_STATUS.LOGIN 
+		|| Date.now() > loginStatus.timestamp + 30 * 60 * 1000) {//半小时
 		return loginStatusRetrieval()
 	}
 	return true
