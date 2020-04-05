@@ -4,37 +4,31 @@
 	"name": "jdtry",
 	"version": "1.0.0",
 	"description": "jd try",
-	"icons":
-	{
+	"icons": {
 		"16": "img/icon.png",
 		"48": "img/icon.png",
 		"128": "img/icon.png"
 	},
-	"background":
-	{
+	"background": {
 		"page": "background.html",
 		"persistent": true
 	},
-	"content_scripts": 
-	[
-		{
-			"matches": ["*://try.jd.com/*", "*://t.jd.com/vender/followVenderList.action*"],
-			"js": [ "static/content-script.js"],
-			"run_at": "document_start",
-			"all_frames": true
-		}
-	],
+	"content_scripts": [{
+		"matches": ["*://*.jd.com/*"],
+		"js": ["static/content-script.js"],
+		"run_at": "document_start",
+		"all_frames": true
+	}],
 	"browser_action": {
 		"default_icon": "img/icon.png",
 		"default_popup": "popup.html"
 	},
 	// 权限申请
-	"permissions":
-	[
+	"permissions": [
 		"*://*.jd.com/*",
 		"*://*.jd.hk/*",
-		"notifications", 
-		"storage", 
+		"notifications",
+		"storage",
 		"alarms"
 	]
 }
