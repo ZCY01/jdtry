@@ -1,0 +1,31 @@
+{
+  "name": "jdtry",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "scripts":{
+    "build": "NODE_ENV=production node_modules/.bin/gulp",
+    "dev": "node_modules/.bin/gulp dev"
+  },
+  "dependencies": {
+    "@vant/touch-emulator": "^1.2.0",
+    "babel-plugin-transform-runtime": "^6.23.0",
+    "dexie": "^2.0.4",
+    "gulp": "^4.0.2",
+    "gulp-clean-css": "^4.3.0",
+    "gulp-concat": "^2.6.1",
+    "gulp-watch": "^5.0.1",
+    "parcel-bundler": "^1.12.4",
+    "tippy.js": "^6.1.0",
+    "vant": "^2.5.8",
+    "vue": ">=2.6.0"
+  },
+  "devDependencies": {
+    "@vue/component-compiler-utils": "^3.1.1",
+    "babel-core": "^6.26.3",
+    "babel-plugin-import": "^1.13.0",
+    "babel-preset-env": "^1.7.0",
+    "stylus": "^0.54.7",
+    "vue-template-compiler": ">=2.6.0"
+  }
+}

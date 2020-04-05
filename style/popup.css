@@ -1,0 +1,24 @@
+a {
+	color: #0b85c3;
+}
+
+.contents {
+	width: 432px;
+	height: 600px;
+
+	background: #fafafa;
+}
+
+.login {}
+
+.not-login {
+	color: #646566
+}
+
+.tabbar__loading {
+	height: 18px;
+	width: 18px;
+}
+.tabbar__loading__text{
+	color:#1989fa
+}
