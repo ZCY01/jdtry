@@ -336,10 +336,10 @@ window.onload = () => {
 		if (HREF.startsWith('https://try.jd.com/activity/getActivityList')) {
 			getNewActivityList(loginStatus) // 不用登录也可以获取
 		}
-		if (HREF.search(/http[s]:\/\/try.jd.com\/user\/myTrial\?page=\d*&selected=2/) >= 0) {
+		if (HREF.search(/https:\/\/try.jd.com\/user\/myTrial\?page=\d*&selected=2/) >= 0) {
 			getSuccessActivityList(loginStatus)
 		}
-		if (HREF.search(/http[s]:\/\/try.jd.com\/\d*\.html/) >= 0) {
+		if (HREF.search(/https:\/\/try.jd.com\/\d*\.html/) >= 0) {
 			activityApply(loginStatus)
 		}
 
