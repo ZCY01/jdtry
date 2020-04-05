@@ -18,6 +18,7 @@ yarn
 # 生成拓展文件
 yarn build
 # chrome 打开开发者模式加载拓展（位于build文件）
+# 或者直接下载 release 里已编译好的 crx 进行解压安装
 ```
 
 ## 使用方法
