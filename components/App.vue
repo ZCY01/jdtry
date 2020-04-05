@@ -305,10 +305,10 @@ export default {
                     bg.emptyFollowVenderList()
                     break
                 case 'activity_retrieval':
-                    bg.activityRetrieval(false)
+                    bg.activityRetrieval()
                     break
                 case 'success_activity_retrieval':
-                    bg.successActivityRetrieval(true)
+                    bg.successActivityRetrieval()
                     break
                 case 'activity_apply':
 
@@ -322,7 +322,7 @@ export default {
                         }
                     }
                     Toast(`即将申请 ${activity.length} 个试用商品`)
-                    bg.activityApply(activity, true)
+                    bg.activityApply(activity)
                     break
 
             }

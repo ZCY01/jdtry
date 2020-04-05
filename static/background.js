@@ -119,16 +119,14 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
 	}
 })
 
-window.successActivityRetrieval = async function (checkLogin = true) {
+window.successActivityRetrieval = async function () {
 	runtime.doneTask = 1
 	runtime.totalTask = 100
 
-	if (checkLogin) {
-		const login = await checkLoginStatusValid()
-		if (!login) {
-			runtime.taskId = -1
-			return
-		}
+	const login = await checkLoginStatusValid()
+	if (!login) {
+		runtime.taskId = -1
+		return
 	}
 
 	console.log(`正在获取试用成功列表`)
@@ -150,7 +148,7 @@ window.successActivityRetrieval = async function (checkLogin = true) {
 }
 
 
-window.activityRetrieval = async function (checkLogin = true) {
+window.activityRetrieval = async function () {
 	runtime.doneTask = 0
 	runtime.totalTask = 100
 
@@ -211,17 +209,15 @@ async function activityRetrievalByCondition(cids, activityType) {
 	}
 	return true
 }
-window.activityApply = async function (activity, checkLogin = true) {
+window.activityApply = async function (activity) {
 
 	runtime.doneTask = 0
 	runtime.totalTask = activity.length ? activity.length : 1
 
-	if (checkLogin) {
-		const login = await checkLoginStatusValid()
-		if (!login) {
-			runtime.taskId = -1
-			return
-		}
+	const login = await checkLoginStatusValid()
+	if (!login) {
+		runtime.taskId = -1
+		return
 	}
 
 	runtime.applyingActivityIds.length = 0
