@@ -161,18 +161,16 @@ window.activityRetrieval = async function () {
 	let cidsList = []
 	let activityTypeList = []
 
-	if (settings) {
-		for (let activityBtn of settings[0].btns) { //  商品类型
-			if (activityBtn.selected) {
-				console.log(`即将搜索 ${activityBtn.text} 商品`)
-				cidsList.push(activityBtn.value)
-			}
+	for (let activityBtn of settings[0].btns) { //  商品类型
+		if (activityBtn.selected) {
+			console.log(`即将搜索 ${activityBtn.text} 商品`)
+			cidsList.push(activityBtn.value)
 		}
-		for (let applyBtn of settings[1].btns) { // 试用类型
-			if (applyBtn.selected) {
-				console.log(`即将搜索 ${applyBtn.text} 试用类型`)
-				activityTypeList.push(applyBtn.value)
-			}
+	}
+	for (let applyBtn of settings[1].btns) { // 试用类型
+		if (applyBtn.selected) {
+			console.log(`即将搜索 ${applyBtn.text} 试用类型`)
+			activityTypeList.push(applyBtn.value)
 		}
 	}
 
