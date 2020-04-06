@@ -366,10 +366,10 @@ window.onload = () => {
 			return
 		}
 
-		if (HREF === 'https://t.jd.com/vender/followVenderList.action?index=1') {
+		if (HREF.startsWith('https://t.jd.com/vender/followVenderList.action')) {
 			getFollowNumber(loginStatus)
 		}
-		if (HREF === 'https://t.jd.com/vender/followVenderList.action') {
+		if (HREF === 'https://t.jd.com/vender/followVenderList.action?index=1') {
 			emptyFollowVenderList(loginStatus)
 		}
 		if (HREF.startsWith('https://try.jd.com/activity/getActivityList')) {
