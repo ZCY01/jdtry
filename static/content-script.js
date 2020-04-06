@@ -1,5 +1,6 @@
-import { suspend, mutationsPromise, simulateClick, parseActivityId} from './utils'
+import { suspend, mutationsPromise, simulateClick, parseActivityId, storage } from './utils'
 import { USER_STATUS, ACTIVITY_STATUS } from './config'
+import { Toast } from 'vant';
 
 function checkLoginStatus() {
 	let loginStatus = {
@@ -291,7 +292,7 @@ async function emptyFollowVenderList(loginStatus) {
 	console.log(`emptyFollowVenderList result:${result}`)
 	chrome.runtime.sendMessage({
 		action: "empty_follow_vender_list",
-		followVenderNum: result? num - toDeleteFollowVenderNum : num
+		followVenderNum: result ? num - toDeleteFollowVenderNum : num
 	})
 }
 
@@ -315,18 +316,43 @@ async function getFollowNumber(loginStatus) {
 	})
 
 }
+function autoLogin() {
+	const autoLoginBtn = document.createElement('a')
+	autoLoginBtn.innerText = "让京试保记住密码并自动登录"
+	document.querySelector('.forget-pw-safe').insertBefore(autoLoginBtn, null)
+	autoLoginBtn.onclick = () => {
+		const username = document.querySelector("#loginname").value
+		const password = document.querySelector("#nloginpwd").value
+		if (!username || !password) {
+			Toast('请填写账号和密码后重试')
+			return
+		}
+		Toast('正在保存账号和密码并登录')
+		storage.set({ account: { username: username, password: password } })
+		// simulateClick(document.querySelector(".login-btn a"), true)
+	}
+}
+
 window.onload = () => {
 	console.log(`${window.location.href} 已加载`)
 
 	setTimeout(() => {
-
+		
+		const HREF = window.location.href
 		const openByBrowser = self === top // 用于标示 是浏览器打开还是脚本使用iframe打开
+
+		if(HREF.startsWith('https://passport.jd.com/uc/login')){  //获取不到登录信息的
+		// 	autoLogin()
+			return
+		}
+
 		const loginStatus = checkLoginStatus()
+
 		if (openByBrowser) {
 			console.log('浏览器打开，不进行任何操作')
 			return
 		}
-		const HREF = window.location.href
+
 		if (HREF === 'https://t.jd.com/vender/followVenderList.action?index=1') {
 			getFollowNumber(loginStatus)
 		}
