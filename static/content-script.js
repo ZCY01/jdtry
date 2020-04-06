@@ -316,7 +316,7 @@ async function getFollowNumber(loginStatus) {
 	})
 
 }
-function autoLogin() {
+async function autoLogin() {
 	const autoLoginBtn = document.createElement('a')
 	autoLoginBtn.innerText = "让京试保记住密码并自动登录"
 	document.querySelector('.forget-pw-safe').insertBefore(autoLoginBtn, null)
@@ -331,6 +331,19 @@ function autoLogin() {
 		storage.set({ account: { username: username, password: password } })
 		// simulateClick(document.querySelector(".login-btn a"), true)
 	}
+
+	const account = { username: '', password: '' }
+	await storage.get({account: { username: '', password: '' }}).then(res=>{Object.assign(account, res.account)})
+	if(!account.username || !account.password){
+		//send msg
+		return
+	}
+	document.querySelector("#loginname").value = res.account.username
+	document.querySelector("#nloginpwd").value = res.account.password
+
+	simulateClick(document.querySelector(".login-btn a"), true)
+	
+	//不管啦。然后直接打开任意一个网页来检查是否登录成功。
 }
 
 window.onload = () => {
