@@ -38,10 +38,15 @@ async function bundleBuild(fileName) {
 
 async function buildContentScript() {
 	await bundleBuild('static/content-script.js')
-	return gulp.src([
+	gulp.src([
 		'dist/content-script.js',
 	])
 		.pipe(gulp.dest('build/static'))
+	return gulp.src([
+		'dist/content-script.css',
+	])
+		.pipe(gulp.dest('build/style'))
+
 }
 
 async function buildPopupScript() {
