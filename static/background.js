@@ -21,7 +21,7 @@ window.saveinfo = {
 	fulfilled: false,
 	date: 0,
 }
-function savePersistentData(){
+function savePersistentData() {
 	// storage.set({ loginStatus: loginStatus })  //当浏览器关闭时，cookies 可能会失效，不再保存loginStatus
 	storage.set({ saveinfo: saveinfo })
 }
@@ -108,7 +108,7 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
 			emitter.emit('bg_follow_vender_num_retrieval_event')
 			break
 		case 'empty_follow_vender_list':
-			emitter.emit('empty_follow_vender_list_event', {followVenderNum:msg.followVenderNum})
+			emitter.emit('empty_follow_vender_list_event', { followVenderNum: msg.followVenderNum })
 			break
 
 		//from popup.html
@@ -258,7 +258,7 @@ async function pageNumberRetrieval(url) {
 }
 
 window.loginStatusRetrieval = async function (retry = 0) {
-	if(retry >= 2){ // 最多重试两次
+	if (retry >= 2) { // 最多重试两次
 		notifications('检查登录状态失败，请检查网络状态后重试', 'login-fail')
 		return false
 	}
@@ -267,7 +267,7 @@ window.loginStatusRetrieval = async function (retry = 0) {
 	const result = await openByIframeAndWaitForClose(url, eventName, IFRAME_LIFETIME)
 	if (result === TIMEOUT_ERROR) {
 		loginStatus.shortDescription = '检查超时'
-		return loginStatusRetrieval(retry+1)
+		return loginStatusRetrieval(retry + 1)
 	}
 	else if (!result.login) {
 		loginStatus.shortDescription = '未登录'
@@ -280,27 +280,28 @@ window.loginStatusRetrieval = async function (retry = 0) {
 window.followVenderNumberRetrieval = async function () {
 	runtime.totalTask = 1
 	runtime.doneTask = 1
-	const url = 'https://t.jd.com/vender/followVenderList.action?index=1'
+	const url = 'https://t.jd.com/vender/followVenderList.action'
 	const eventName = 'bg_follow_vender_num_retrieval_event'
 	const result = await openByIframeAndWaitForClose(url, eventName, IFRAME_LIFETIME * 2)
-	if(result === TIMEOUT_ERROR){
+	if (result === TIMEOUT_ERROR) {
 		notifications('获取关注数量超时')
 	}
-	else{
+	else {
 		notifications(`获取关注数量完成，一共关注了${saveinfo.followVenderNum}个店铺`)
 	}
 	runtime.taskId = -1
 }
 window.emptyFollowVenderList = async function () {
+	//https://t.jd.com/follow/vender/list.do  好像这个网址点击清空按钮之后会自动加载这个网址，待测试
 	runtime.doneTask = 0
 	runtime.totalTask = saveinfo.followVenderNum > 0 ? saveinfo.followVenderNum : 500
 	for (let i = 0; i < 15; i++) {
 		console.log(`当前进行第${i + 1}次 emptyFollowVenderList, followVenderNum:${saveinfo.followVenderNum}`)
 
-		const url = 'https://t.jd.com/vender/followVenderList.action'
+		const url = 'https://t.jd.com/vender/followVenderList.action?index=1'
 		const eventName = 'empty_follow_vender_list_event'
 		const result = await openByIframeAndWaitForClose(url, eventName, IFRAME_LIFETIME * 2)
-		if(result === TIMEOUT_ERROR){
+		if (result === TIMEOUT_ERROR) {
 			continue
 		}
 		saveinfo.followVenderNum = result.followVenderNum
@@ -314,8 +315,15 @@ window.emptyFollowVenderList = async function () {
 }
 
 window.checkLoginStatusValid = async function () {
-	if (loginStatus.status !== USER_STATUS.LOGIN 
+	if (loginStatus.status !== USER_STATUS.LOGIN
 		|| Date.now() > loginStatus.timestamp + 30 * 60 * 1000) {//半小时
+
+		Object.assign(loginStatus, {
+			status: USER_STATUS.WARMING,
+			description: '正在获取登录状态/点击重新获取登录状态',
+			shortDescription: '正在检查',
+			timestamp: 0,
+		})
 		return loginStatusRetrieval()
 	}
 	return true
@@ -341,6 +349,6 @@ window.onload = () => {
 	})
 }
 
-window.onunload = ()=>{
+window.onunload = () => {
 	savePersistentData()
 }
