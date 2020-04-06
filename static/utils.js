@@ -119,7 +119,7 @@ function waitEventWithPromise(eventName, timeout = IFRAME_LIFETIME) {
 			if (!removed) {
 				console.warn(`${eventName} 超时`)
 				emitter.removeListener(eventName, listener)
-				reject(timeout)
+				reject(TIMEOUT_ERROR)
 			}
 		}, timeout)
 	})
