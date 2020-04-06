@@ -24,7 +24,7 @@ export async function addActivityItems(items) {
 	try {
 		await db.activityItems.bulkAdd(items, keys)
 	} catch (e) {
-		console.log(`activityItems add error:${e}`)
+		// console.log(`activityItems add error:${e}`)
 		newSuccess = e.failures.length !== items.length
 	}
 	if (newSuccess) {
@@ -58,7 +58,7 @@ export async function addSuccessActivityList(items) {
 		await db.successActivityItems.bulkAdd(items, keys)
 		//notify 有新的成功的项目
 	} catch (e) {
-		console.log(`successActivityItems update error:${e}`)
+		// console.log(`successActivityItems update error:${e}`)
 		newSuccess = e.failures.length !== items.length
 	}
 	if (newSuccess) {
