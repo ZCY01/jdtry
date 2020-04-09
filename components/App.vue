@@ -1,6 +1,6 @@
 <template>
 <div class='contents'>
-    <van-tabs v-model="activeTabName" sticky >
+    <van-tabs v-model="activeTabName" sticky>
         <van-tab title="任务列表" name="taskpanel">
             <taskpanel :taskId="runtime.taskId" :taskPercentage="taskPercentage" :applidActivityNum="saveinfo.applidActivityNum" @execute="execute"></taskpanel>
         </van-tab>
@@ -123,7 +123,13 @@ export default {
             ACTIVITY_STATUS: ACTIVITY_STATUS,
         }
     },
-    mounted: function () {
+    destroyed() {
+        //因为 loginStatus 这些参数是 window 生命周期的，如果不手动释放的话会导致内存泄露
+        bg.loginStatus = Object.assign({}, bg.loginStatus)
+        bg.runtime = Object.assign({}, bg.runtime)
+        bg.saveinfo = Object.assign({}, bg.saveinfo)
+    },
+    mounted() {
         chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             switch (message.action) {
                 case "popup_update_activity":
@@ -283,7 +289,7 @@ export default {
             })
         },
         execute(task) {
-			if (this.loginStatus.status === USER_STATUS.WARMING) {
+            if (this.loginStatus.status === USER_STATUS.WARMING) {
                 Toast('正在检查登录状态，请稍后')
                 return
             }

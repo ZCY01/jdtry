@@ -83,10 +83,16 @@ Vue.use(CellGroup);
 Vue.use(Tab)
 Vue.use(Tabs)
 Vue.use(List);
-new Vue({
+let popup = new Vue({
 	el: '#app',
 	render: h => h(App),
 	components: {
 		App
 	}
 })
+
+//手动注销，缺一不可
+window.onunload = ()=>{
+	popup.$destroy()
+	popup = null
+}
