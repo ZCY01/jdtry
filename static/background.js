@@ -63,10 +63,10 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
 
 		//from content-script
 		case 'bg_update_saveinfo':
-			Object.assign(saveinfo, msg.data)  //should check key?
-			if (saveinfo.fulfilled) {
-				saveinfo.applidActivityNum = 300
-			}
+			saveinfo = Object.assign(saveinfo, msg.data)  //should check key?
+			// if (saveinfo.fulfilled) {
+			// 	saveinfo.applidActivityNum = 300
+			// }
 			return
 		case 'bg_activity_applied':
 			if (msg.status) {
@@ -83,7 +83,7 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
 			})
 			break
 		case 'bg_login_status_retrieval':
-			Object.assign(loginStatus, msg.loginStatus)
+			loginStatus = Object.assign(loginStatus, msg.loginStatus)
 			emitter.emit('login_status_retrieval_event', { login: msg.status })
 			break
 
@@ -106,9 +106,13 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
 		case 'bg_follow_vender_num_retrieval':
 			saveinfo.followVenderNum = msg.followVenderNum
 			emitter.emit('bg_follow_vender_num_retrieval_event')
-			break
-		case 'empty_follow_vender_list':
-			emitter.emit('empty_follow_vender_list_event', { followVenderNum: msg.followVenderNum })
+
+			if(runtime.taskId === 1){ //清空关注列表
+				runtime.doneTask = runtime.totalTask - saveinfo.followVenderNum
+				if(saveinfo.followVenderNum === 0){
+					emitter.emit('empty_follow_vender_list_event')
+				}
+			}
 			break
 
 		//from popup.html
@@ -278,7 +282,7 @@ window.loginStatusRetrieval = async function (retry = 0) {
 window.followVenderNumberRetrieval = async function () {
 	runtime.totalTask = 1
 	runtime.doneTask = 1
-	const url = 'https://t.jd.com/vender/followVenderList.action'
+	const url = 'https://t.jd.com/follow/vender/list.do?index=1'
 	const eventName = 'bg_follow_vender_num_retrieval_event'
 	const result = await openByIframeAndWaitForClose(url, eventName, IFRAME_LIFETIME * 2)
 	if (result === TIMEOUT_ERROR) {
@@ -290,33 +294,23 @@ window.followVenderNumberRetrieval = async function () {
 	runtime.taskId = -1
 }
 window.emptyFollowVenderList = async function () {
-	//https://t.jd.com/follow/vender/list.do  好像这个网址点击清空按钮之后会自动加载这个网址，待测试
+
 	runtime.doneTask = 0
 	runtime.totalTask = saveinfo.followVenderNum > 0 ? saveinfo.followVenderNum : 500
-	for (let i = 0; i < 15; i++) {
-		console.log(`当前进行第${i + 1}次 emptyFollowVenderList, followVenderNum:${saveinfo.followVenderNum}`)
 
-		const url = 'https://t.jd.com/vender/followVenderList.action?index=1'
-		const eventName = 'empty_follow_vender_list_event'
-		const result = await openByIframeAndWaitForClose(url, eventName, IFRAME_LIFETIME * 2)
-		if (result === TIMEOUT_ERROR) {
-			continue
-		}
-		saveinfo.followVenderNum = result.followVenderNum
-		runtime.doneTask = runtime.totalTask - saveinfo.followVenderNum
-		if (saveinfo.followVenderNum === 0) {
-			break
-		}
-	}
-	notifications('已完成清理关注店铺列表')
+	const url = 'https://t.jd.com/follow/vender/list.do'
+	const eventName = 'empty_follow_vender_list_event'
+	await openByIframeAndWaitForClose(url, eventName, 2 * 60 * 1000) // 保留 iframe 两分钟
+	notifications(`已完成清理关注店铺列表，当前关注数量为${saveinfo.followVenderNum}`)
 	runtime.taskId = -1
+
 }
 
 window.checkLoginStatusValid = async function () {
 	if (loginStatus.status !== USER_STATUS.LOGIN
 		|| Date.now() > loginStatus.timestamp + 30 * 60 * 1000) {//半小时
 
-		Object.assign(loginStatus, {
+		loginStatus = Object.assign(loginStatus, {
 			status: USER_STATUS.WARMING,
 			description: '正在获取登录状态/点击重新获取登录状态',
 			shortDescription: '正在检查',
