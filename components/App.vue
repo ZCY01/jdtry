@@ -43,28 +43,6 @@
         <van-tabbar-item title="点击查看本插件的全部代码" v-tippy icon="../img/github.png" @click="openGithub">
             源代码
         </van-tabbar-item>
-        <!-- <van-tabbar-item title="搜索京东试用网页" v-tippy @click="search">
-            <span :class="runtime.searchloading?'tabbar__loading__text':''">搜索</span>
-            <template #icon>
-                <van-icon v-if="!runtime.searchloading" name="search"></van-icon>
-                <van-loading v-else color="#1989fa" class="tabbar__loading" />
-            </template>
-        </van-tabbar-item>
-
-        <van-tabbar-item title="检查是否有新的申请成功的商品" v-tippy @click="check">
-            <span :class="runtime.checkloading?'tabbar__loading__text':''">检查</span>
-            <template #icon>
-                <van-icon v-if="!runtime.checkloading" name="replay"></van-icon>
-                <van-loading v-else color="#1989fa" class="tabbar__loading" />
-            </template>
-        </van-tabbar-item>
-        <van-tabbar-item title='立即申请"商品列表"里的商品' v-tippy @click="apply">
-            <span :class="runtime.applyloading?'tabbar__loading__text':''">执行</span>
-            <template #icon>
-                <van-icon v-if="!runtime.applyloading" name="cart-o"></van-icon>
-                <van-loading v-else color="#1989fa" class="tabbar__loading" />
-            </template>
-        </van-tabbar-item> -->
     </van-tabbar>
 </div>
 </template>
@@ -143,9 +121,6 @@ export default {
                 case "popup_update_activity_status":
                     this.updateACTIVITY_STATUS(message.activityId, message.status);
                     break;
-                    // case "loginState_updated":
-                    //     this.dealWithLoginState();
-                    //     break;
                 default:
                     break;
             }
@@ -289,10 +264,10 @@ export default {
             })
         },
         execute(task) {
-            if (this.loginStatus.status === USER_STATUS.WARMING) {
-                Toast('正在检查登录状态，请稍后')
-                return
-            }
+            // if (this.loginStatus.status === USER_STATUS.WARMING) {
+            //     Toast('正在检查登录状态，请稍后')
+            //     return
+            // }
             if (this.loginStatus.status === USER_STATUS.LOGOUT) {
                 Toast('未登录！请手动登录！')
                 return

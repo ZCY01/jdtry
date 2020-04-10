@@ -3,6 +3,11 @@ import { USER_STATUS, ACTIVITY_STATUS } from './config'
 import { Toast } from 'vant';
 
 function checkLoginStatus() {
+
+	if (document.querySelector("#ttbar-login") === null) { // 检查不到用户登录状态
+		return undefined
+	}
+
 	let loginStatus = {
 		status: USER_STATUS.LOGOUT,
 		description: '未检查到用户名，点击打开网页登录',
@@ -10,8 +15,7 @@ function checkLoginStatus() {
 		timestamp: Date.now()
 	}
 
-	if (document.querySelector("#ttbar-login")
-		&& document.querySelector(".nickname")
+	if (document.querySelector(".nickname")
 		&& document.querySelector(".nickname").innerText) {
 
 		loginStatus.status = USER_STATUS.LOGIN
@@ -31,8 +35,8 @@ function checkLoginStatus() {
 	return login
 }
 
-
-function getNewActivityList(loginStatus) {
+function newActivityListRetrieval() {
+	console.log(`即将执行 newActivityListRetrieval`)
 
 	let activityList = []
 	document.querySelectorAll('.try-item').forEach(activity => {
@@ -64,7 +68,7 @@ function getNewActivityList(loginStatus) {
 	})
 }
 
-async function waitForDialog() {
+async function waitForDialog(timeout = 2500) {
 	await mutationsPromise(
 		document.body,
 		{ childList: true },
@@ -75,7 +79,7 @@ async function waitForDialog() {
 				}
 			}
 		},
-		2500,
+		timeout,
 		"获得 ui-dialog 弹窗失败")
 }
 
@@ -148,7 +152,8 @@ async function clickApplyBtn(activityId) {
 	let result = document.querySelector('.ui-dialog') // 获取整个弹窗的值
 	return dealWithDialogAlert(result.innerText)
 }
-async function activityApply(loginStatus) {
+async function activityApply() {
+	console.log(`即将执行 activityApply`)
 	const activityId = parseActivityId(window.location.href)
 
 	let destoryIframeMsg = (status = false, success = false) => {
@@ -159,10 +164,6 @@ async function activityApply(loginStatus) {
 			status: status,
 			success: success
 		})
-	}
-
-	if (!loginStatus) {
-		return destoryIframeMsg()
 	}
 
 	let state = document.querySelector('.state')
@@ -189,11 +190,8 @@ async function activityApply(loginStatus) {
 		})
 }
 
-function getSuccessActivityList(loginStatus) {
-	if (!loginStatus) {
-		return
-	}
-	console.log('正在 我的试用-申请成功 页面')
+function successActivityListRetrieval() {
+	console.log(`即将执行 successActivityListRetrieval`)
 	let activityList = document.querySelectorAll(('.list-detail-item'))
 	if (!activityList) {
 		console.warn('无法获得/没有申请成功的商品')
@@ -226,11 +224,12 @@ function getSuccessActivityList(loginStatus) {
 	})
 }
 
-async function emptyFollowVenderListOpt() {
+async function emptyFollowVenderList() {
+	console.log(`即将执行 emptyFollowVenderList`)
 
 	if (document.querySelectorAll('.mf-shop-item').length === 0) {
 		console.log('已经没有关注的店铺')
-		return false
+		return true
 	}
 
 	const allOptBtn = document.querySelector('.batch-box.J-batchBox a') // 批量操作按钮
@@ -252,7 +251,7 @@ async function emptyFollowVenderListOpt() {
 	const unFollowBtn = document.querySelector('.batch-box.J-batchBox .op-btn.u-unfollow')  //取消关注
 	if (!unFollowBtn || unFollowBtn.innerText !== '取消关注') {
 		console.warn('找不到取消关注按钮')
-		return
+		return false
 	}
 	simulateClick(unFollowBtn, true)
 
@@ -260,7 +259,7 @@ async function emptyFollowVenderListOpt() {
 		await waitForDialog()
 	}
 	catch (e) {
-		console.warn('无法获得弹窗')
+		console.warn('无法获得确定弹窗')
 		return false
 	}
 	const dialog = document.querySelector('.ui-dialog')
@@ -271,35 +270,18 @@ async function emptyFollowVenderListOpt() {
 	}
 	simulateClick(submitBtn, true)
 
-	return true
-}
-//清理完，这个网站好像会自动 reload...
-async function emptyFollowVenderList(loginStatus) {
-	if (!loginStatus) {
-		return
+	try {  //获取操作失败结果
+		await waitForDialog()
+		console.warn(`${document.querySelector('.ui-dialog').innerText}`)
 	}
-
-	let num = 0
-	document.querySelectorAll('#categoryFilter li').forEach(li => {
-		const reg = /（(\d*)）/.exec(li.innerText)
-		if (reg) {
-			num += parseInt(reg[1])
-		}
-	})
-	const toDeleteFollowVenderNum = document.querySelectorAll('.mf-shop-item').length
-
-	const result = await emptyFollowVenderListOpt()
-	console.log(`emptyFollowVenderList result:${result}`)
-	chrome.runtime.sendMessage({
-		action: "empty_follow_vender_list",
-		followVenderNum: result ? num - toDeleteFollowVenderNum : num
-	})
+	catch (e) {
+		console.warn(`无法获得 emptyFollowVenderList 操作结果`)
+	}
+	return false
 }
 
-async function getFollowNumber(loginStatus) {
-	if (!loginStatus) {
-		return
-	}
+async function followNumberRetrieval() {
+	console.log(`即将执行 followNumberRetrieval`)
 	let num = 0
 	document.querySelectorAll('#categoryFilter li').forEach(li => {
 		const reg = /（(\d*)）/.exec(li.innerText)
@@ -333,8 +315,8 @@ async function autoLogin() {
 	}
 
 	const account = { username: '', password: '' }
-	await storage.get({account: { username: '', password: '' }}).then(res=>{Object.assign(account, res.account)})
-	if(!account.username || !account.password){
+	await storage.get({ account: { username: '', password: '' } }).then(res => { Object.assign(account, res.account) })
+	if (!account.username || !account.password) {
 		//send msg
 		return
 	}
@@ -342,46 +324,56 @@ async function autoLogin() {
 	document.querySelector("#nloginpwd").value = res.account.password
 
 	simulateClick(document.querySelector(".login-btn a"), true)
-	
+
 	//不管啦。然后直接打开任意一个网页来检查是否登录成功。
 }
 
 window.onload = () => {
-	console.log(`${window.location.href} 已加载`)
+	const HREF = window.location.href
+	console.log(`${HREF} 已加载`)
+
+	checkLoginStatus()
+
+	const openByBrowser = self === top // 用于标示 是浏览器打开还是脚本使用iframe打开
+	if (openByBrowser) {
+		console.log('浏览器打开，不进行任何操作')
+		return
+	}
 
 	setTimeout(() => {
-		
-		const HREF = window.location.href
-		const openByBrowser = self === top // 用于标示 是浏览器打开还是脚本使用iframe打开
 
-		if(HREF.startsWith('https://passport.jd.com/uc/login')){  //获取不到登录信息的
-		// 	autoLogin()
+		if (HREF.startsWith('https://passport.jd.com/uc/login')) {
+			// 	autoLogin()
 			return
 		}
 
-		const loginStatus = checkLoginStatus()
-
-		if (openByBrowser) {
-			console.log('浏览器打开，不进行任何操作')
-			return
+		if (HREF.startsWith('https://t.jd.com/vender/followVenderList.action')
+			|| HREF.startsWith('https://t.jd.com/follow/vender/list.do')) {
+			followNumberRetrieval()
 		}
+		if (HREF === 'https://t.jd.com/vender/followVenderList.action'
+			|| HREF === 'https://t.jd.com/follow/vender/list.do') {
 
-		if (HREF.startsWith('https://t.jd.com/vender/followVenderList.action')) {
-			getFollowNumber(loginStatus)
-		}
-		if (HREF === 'https://t.jd.com/vender/followVenderList.action?index=1') {
-			emptyFollowVenderList(loginStatus)
+			emptyFollowVenderList().then(res => {
+				if (!res) {//要么成功自动reload, 要么失败手动reload
+					window.location.reload()
+				}
+			})
+
 		}
 		if (HREF.startsWith('https://try.jd.com/activity/getActivityList')) {
-			getNewActivityList(loginStatus) // 不用登录也可以获取
+			newActivityListRetrieval() // 不用登录也可以获取
 		}
 		if (HREF.search(/https:\/\/try.jd.com\/user\/myTrial\?page=\d*&selected=2/) >= 0) {
-			getSuccessActivityList(loginStatus)
+			successActivityListRetrieval()
 		}
 		if (HREF.search(/https:\/\/try.jd.com\/\d*\.html/) >= 0) {
-			activityApply(loginStatus)
+			activityApply()
 		}
 
 	}, 4000)
 
+}
+window.onbeforeunload = () => {
+	console.log(`${window.location.href} reload`)
 }
