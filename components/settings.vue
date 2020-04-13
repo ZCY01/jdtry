@@ -4,21 +4,19 @@
     <van-cell v-for="item in settings" :key="item.name" :title="item.text">
         <template #label>
             <span v-for="btn of item.btns" :key="btn.value">
-                <van-button :type="btn.selected?'info':'default'" @click="selected(btn)" class="settings-btn" >
+                <van-button :type="btn.selected?'info':'default'" @click="selected(btn)" class="settings-btn">
                     {{btn.text}}
                 </van-button>
             </span>
         </template>
     </van-cell>
     <van-cell title="定时启动" center>
-        <van-stepper disabled v-model="auto.runtime" style="width:100px;float:left" min="0" max="23" title="每天" v-tippy @change="switchStatusChange"></van-stepper>
-        <van-switch disabled v-model="auto.run" style="float:right" @change="switchStatusChange"></van-switch>
+        <van-stepper disabled v-model="auto.runtime" style="width:100px;float:left" min="0" max="23" title="每天" v-tippy @change="switchStatusChange('runtime')"></van-stepper>
+        <van-switch disabled v-model="auto.run" style="float:right" @change="switchStatusChange('run')"></van-switch>
     </van-cell>
     <van-cell title="自动登录" center>
-        <van-switch disabled v-model="auto.login" @change="switchStatusChange"></van-switch>
+        <van-switch v-model="auto.login" @change="switchStatusChange('login')"></van-switch>
     </van-cell>
-
-
 
 </van-list>
 </template>
@@ -26,10 +24,14 @@
 <script>
 import {
     storage
-} from "../static/utils";
+} from "../static/utils"
+import {
+    Toast,
+} from 'vant'
+
 
 export default {
-	name: "settings",
+    name: "settings",
     data() {
         return {
             settings: [],
@@ -59,15 +61,19 @@ export default {
                 settings: this.settings
             });
         },
-        switchStatusChange() {
-			storage.set({
+        switchStatusChange(key) {
+            storage.set({
                 auto: this.auto
-            });
-
-            chrome.runtime.sendMessage({
-                action: "bg_update_auto_task",
-				auto:this.auto
             })
+            if (key === 'login' && this.auto.login) {
+				Toast('即将跳转登录界面，请点击保存')
+				setTimeout(()=>{
+					chrome.tabs.create({
+						url: 'https://passport.jd.com/new/login.aspx',
+						active: true
+					})
+				},2000)
+            }
         }
     }
 };
@@ -77,5 +83,4 @@ export default {
 .settings-btn {
     margin: 3px;
 }
-
 </style>

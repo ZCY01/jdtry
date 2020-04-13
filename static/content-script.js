@@ -298,7 +298,9 @@ async function followNumberRetrieval() {
 	})
 
 }
-async function autoLogin() {
+function autoLogin() {
+	console.log(`即将执行 autoLogin`)
+	simulateClick(document.querySelector('.login-tab.login-tab-r a'), true)
 	const autoLoginBtn = document.createElement('a')
 	autoLoginBtn.innerText = "让京试保记住密码并自动登录"
 	document.querySelector('.forget-pw-safe').insertBefore(autoLoginBtn, null)
@@ -311,21 +313,28 @@ async function autoLogin() {
 		}
 		Toast('正在保存账号和密码并登录')
 		storage.set({ account: { username: username, password: password } })
-		// simulateClick(document.querySelector(".login-btn a"), true)
+		simulateClick(document.querySelector(".login-btn a"), true)
 	}
 
-	const account = { username: '', password: '' }
-	await storage.get({ account: { username: '', password: '' } }).then(res => { Object.assign(account, res.account) })
-	if (!account.username || !account.password) {
-		//send msg
-		return
-	}
-	document.querySelector("#loginname").value = res.account.username
-	document.querySelector("#nloginpwd").value = res.account.password
+	suspend(2000).then(
+		storage.get({ account: { username: '', password: '' } })
+			.then(res => {
+				if (!res.account.username || !res.account.password) {
+					console.log(`has no account for auto login`)
+					return
+				}
+				document.querySelector("#loginname").value = res.account.username
+				document.querySelector("#nloginpwd").value = res.account.password
 
-	simulateClick(document.querySelector(".login-btn a"), true)
+				simulateClick(document.querySelector(".login-btn a"), true)
 
-	//不管啦。然后直接打开任意一个网页来检查是否登录成功。
+				setTimeout(() => {
+					console.warn('自动登录失败，即将自动跳转 jd 主页检查')
+					// window.location.href = 'https://try.jd.com/'
+				}, 3000)
+			})
+	)
+
 }
 
 window.onload = () => {
@@ -334,6 +343,11 @@ window.onload = () => {
 
 	checkLoginStatus()
 
+	if (HREF.startsWith('https://passport.jd.com/')) {
+		autoLogin()
+		return
+	}
+
 	const openByBrowser = self === top // 用于标示 是浏览器打开还是脚本使用iframe打开
 	if (openByBrowser) {
 		console.log('浏览器打开，不进行任何操作')
@@ -341,11 +355,6 @@ window.onload = () => {
 	}
 
 	setTimeout(() => {
-
-		if (HREF.startsWith('https://passport.jd.com/uc/login')) {
-			// 	autoLogin()
-			return
-		}
 
 		if (HREF.startsWith('https://t.jd.com/vender/followVenderList.action')
 			|| HREF.startsWith('https://t.jd.com/follow/vender/list.do')) {
@@ -375,5 +384,5 @@ window.onload = () => {
 
 }
 window.onbeforeunload = () => {
-	console.log(`${window.location.href} reload`)
+	console.log(`${window.location.href} unloading`)
 }
