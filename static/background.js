@@ -24,6 +24,13 @@ window.saveinfo = {
 function savePersistentData() {
 	// storage.set({ loginStatus: loginStatus })  //当浏览器关闭时，cookies 可能会失效，不再保存loginStatus
 	storage.set({ saveinfo: saveinfo })
+	storage.set({
+		auto: {
+			run: false,
+			runtime: 0,
+			login: false
+		}
+	})
 }
 chrome.runtime.onInstalled.addListener(function (object) {
 	storage.set({ settings: settingConfig })
@@ -107,9 +114,9 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
 			saveinfo.followVenderNum = msg.followVenderNum
 			emitter.emit('bg_follow_vender_num_retrieval_event')
 
-			if(runtime.taskId === 1){ //清空关注列表
+			if (runtime.taskId === 1) { //清空关注列表
 				runtime.doneTask = runtime.totalTask - saveinfo.followVenderNum
-				if(saveinfo.followVenderNum === 0){
+				if (saveinfo.followVenderNum === 0) {
 					emitter.emit('empty_follow_vender_list_event')
 				}
 			}
@@ -272,10 +279,22 @@ window.loginStatusRetrieval = async function (retry = 0) {
 		return loginStatusRetrieval(retry + 1)
 	}
 	else if (!result.login) {
-		loginStatus.shortDescription = '未登录'
-		loginStatus.description = '未检查到用户名，请手动登录'
-		notifications('未检查到用户名，请手动登录', 'login-fail')
-		return false
+		let auto
+		await storage.get('auto').then(res => { auto = res.auto })
+		if (!auto.login) {
+			loginStatus.shortDescription = '未登录'
+			loginStatus.description = '未检查到用户名，请手动登录'
+			notifications('未检查到用户名，请手动登录', 'login-fail')
+			return false
+		}
+
+		const url = 'https://passport.jd.com/new/login.aspx?ReturnUrl=https%3A%2F%2Ftry.jd.com%2F'
+		const eventName = `login_status_retrieval_event`
+		const result = await openByIframeAndWaitForClose(url, eventName, IFRAME_LIFETIME)
+		if (result === TIMEOUT_ERROR || !result.login) {
+			notifications('自动登录失败，请手动登录', 'login-fail')
+			return false
+		}
 	}
 	return true
 }
