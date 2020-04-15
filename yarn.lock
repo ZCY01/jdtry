@@ -4506,6 +4506,11 @@ lru-cache@^4.1.2:
     pseudomap "^1.0.2"
     yallist "^2.1.2"
 
+luxon@^1.23.0:
+  version "1.23.0"
+  resolved "https://registry.npm.taobao.org/luxon/download/luxon-1.23.0.tgz#23b748ad0f2d5494dc4d2878c19278c1e651410c"
+  integrity sha1-I7dIrQ8tVJTcTSh4wZJ4weZRQQw=
+
 magic-string@^0.22.4:
   version "0.22.5"
   resolved "https://registry.npm.taobao.org/magic-string/download/magic-string-0.22.5.tgz?cache=0&sync_timestamp=1583500499850&other_urls=https%3A%2F%2Fregistry.npm.taobao.org%2Fmagic-string%2Fdownload%2Fmagic-string-0.22.5.tgz#8e9cf5afddf44385c1da5bc2a6a0dbd10b03657e"
