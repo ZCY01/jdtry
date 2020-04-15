@@ -1,6 +1,7 @@
 import { storage, emitter, openByIframeAndWaitForClose, TIMEOUT_ERROR, notifications, openByIframe, IFRAME_LIFETIME } from './utils'
 import { addActivityItems, updateActivityItemsStatus, addSuccessActivityList } from './db'
-import { settingConfig, USER_STATUS } from './config'
+import { settingConfig, USER_STATUS, ACTIVITY_STATUS} from './config'
+import {updateTaskInfo} from './tasks'
 
 
 window.runtime = {
@@ -288,7 +289,7 @@ window.loginStatusRetrieval = async function (retry = 0) {
 			return false
 		}
 
-		const url = 'https://passport.jd.com/new/login.aspx?ReturnUrl=https%3A%2F%2Ftry.jd.com%2F'
+		const url = 'https://passport.jd.com/new/login.aspx'
 		const eventName = `login_status_retrieval_event`
 		const result = await openByIframeAndWaitForClose(url, eventName, IFRAME_LIFETIME)
 		if (result === TIMEOUT_ERROR || !result.login) {
@@ -338,6 +339,36 @@ window.checkLoginStatusValid = async function () {
 		return loginStatusRetrieval()
 	}
 	return true
+}
+window.runTask = async function (task) {
+	runtime.taskId = task.id
+	updateTaskInfo(task)
+	switch (task.action) {
+		case 'follow_vender_num_retrieval':
+			followVenderNumberRetrieval()
+			break
+		case 'empty_follow_vender_list':
+			emptyFollowVenderList()
+			break
+		case 'activity_retrieval':
+			activityRetrieval()
+			break
+		case 'success_activity_retrieval':
+			successActivityRetrieval()
+			break
+		case 'activity_apply':
+			const items = await getActivityItems(1)
+			let deleteIds
+			await storage.get({ activity_sql_delete_ids: [] }).then(res => deleteIds = res.activity_sql_delete_ids)
+			const activity = items.filter(item=>{
+				if(deleteIds.indexOf(item.id) >= 0){
+					return false
+				}
+				return item.status === ACTIVITY_STATUS.APPLY
+			})
+			activityApply(activity)
+			break
+	}
 }
 
 function checkAndResetSaveInfo() {

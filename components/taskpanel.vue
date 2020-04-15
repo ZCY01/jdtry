@@ -8,7 +8,7 @@
                 </div>
             </template>
             <div>
-                <van-button v-if="taskId !== task.id" plain hairline size="small" type="info" @click="emit(task)"> 执行 </van-button>
+                <van-button v-if="taskId !== task.id" plain hairline size="small" type="info" @click="emit(task)" :title='readableTime(task.last_run_at)' v-tippy> 执行 </van-button>
                 <van-button v-else loading plain hairline size="small" type="info" loading-text="正在执行"></van-button>
             </div>
         </van-cell>
@@ -18,7 +18,7 @@
     <van-cell center>
         <template #title>
             <div title="每日最多可申请300个试用商品" v-tippy>
-				每日份额
+                每日份额
             </div>
         </template>
         <van-circle v-model="rate" :text="text" size="80" layer-color="#ebedf0"></van-circle>
@@ -36,7 +36,11 @@ import {
 } from '../static/tasks'
 import {
     Dialog
-} from 'vant';
+} from 'vant'
+import {
+    readableTime
+} from '../static/utils'
+
 export default {
     name: "taskpanel",
     props: ["taskId", "taskPercentage", "applidActivityNum"],
@@ -64,6 +68,12 @@ export default {
             }).then(() => {
                 this.$emit('execute', task)
             }).catch(() => {})
+        },
+        readableTime(time) {
+            if (time <= 0) {
+                return ''
+            }
+            return `上次运行：${readableTime(time)}`
         }
     }
 };

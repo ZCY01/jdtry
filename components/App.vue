@@ -67,6 +67,10 @@ import {
     ACTIVITY_STATUS,
     USER_STATUS
 } from '../static/config'
+import {
+	updateTaskInfo
+} from '../static/tasks'
+
 const bg = chrome.extension.getBackgroundPage()
 
 export default {
@@ -213,13 +217,11 @@ export default {
             }
         },
         renderSqlActivityItems() {
-            console.log('renderSqlActivityItems')
             getActivityItems(this.activity.sql.day).then(res => {
                 this.activity.sql.items = res
             })
         },
         renderSuccessActivityItems() {
-            console.log('renderSuccessActivityItems')
             getSuccessActivityItems(this.activity.success.day).then(res => {
                 this.activity.success.items = res
             })
@@ -276,23 +278,10 @@ export default {
                 Toast('有任务正在执行')
                 return
             }
-            this.runtime.taskId = task.id
-            //其实可以移动到 getBackground 里面的，但是不知道怎么解决传参数的问题
+			this.runtime.taskId = task.id
+			updateTaskInfo(task)
             switch (task.action) {
-                case 'follow_vender_num_retrieval':
-                    bg.followVenderNumberRetrieval()
-                    break
-                case 'empty_follow_vender_list':
-                    bg.emptyFollowVenderList()
-                    break
-                case 'activity_retrieval':
-                    bg.activityRetrieval()
-                    break
-                case 'success_activity_retrieval':
-                    bg.successActivityRetrieval()
-                    break
                 case 'activity_apply':
-
                     const activity = []
                     for (let item of this.activeSqlActivityItems) {
                         if (item.status === ACTIVITY_STATUS.APPLY) { //非 已成功
@@ -305,7 +294,9 @@ export default {
                     Toast(`即将申请 ${activity.length} 个试用商品`)
                     bg.activityApply(activity)
                     break
-
+                default:
+                    bg.runTask(task)
+                    break
             }
         }
     }

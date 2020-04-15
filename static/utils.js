@@ -1,13 +1,14 @@
-export function parseActivityId(href){
+import {DateTime} from 'luxon'
+export function parseActivityId(href) {
 	let activityIdReg = /http[s]:\/\/try.jd.com\/(\d*)\.html/
 	let activityId = activityIdReg.exec(href)
-	if(!activityId){
+	if (!activityId) {
 		return null
 	}
 	return parseInt(activityId[1])
 }
 
-export function mutationsPromise(element, observerConfig, callback, rejectTime = 0, rejectMsg="") {
+export function mutationsPromise(element, observerConfig, callback, rejectTime = 0, rejectMsg = "") {
 	return new Promise((resolve, reject) => {
 		let disconnect = false
 		const observer = new MutationObserver((mutations) => {
@@ -52,19 +53,19 @@ async function mockClick(element) {
 	}
 	if (element) {
 		dispatchMouseEvent('mouseover', true, true)
-		await suspend(rand(100,200))
+		await suspend(rand(100, 200))
 		dispatchMouseEvent('mousedown', true, true)
-		await suspend(rand(100,200))
+		await suspend(rand(100, 200))
 		dispatchMouseEvent('mouseup', true, true)
-		await suspend(rand(100,200))
+		await suspend(rand(100, 200))
 		dispatchMouseEvent('click', true, true)
-		await suspend(rand(100,200))
+		await suspend(rand(100, 200))
 		dispatchMouseEvent('mouseout', true, true)
 	}
 }
 
 export function simulateClick(domNode, mouseEvent) {
-	if(!domNode){
+	if (!domNode) {
 		console.warn(`domNode 节点不存在！！！`)
 		return
 	}
@@ -85,17 +86,17 @@ export function simulateClick(domNode, mouseEvent) {
 }
 
 
-export const storage={
-	get: function(object){
-		return new Promise((resolve, reject)=>{
-			chrome.storage.local.get(object, function(items) {
+export const storage = {
+	get: function (object) {
+		return new Promise((resolve, reject) => {
+			chrome.storage.local.get(object, function (items) {
 				resolve(items)
 			})
 		})
 	},
-	set: function(object){
-		return new Promise((resolve, reject)=>{
-			chrome.storage.local.set(object, function() {
+	set: function (object) {
+		return new Promise((resolve, reject) => {
+			chrome.storage.local.set(object, function () {
 				resolve()
 			})
 		})
@@ -125,11 +126,11 @@ function waitEventWithPromise(eventName, timeout = IFRAME_LIFETIME) {
 	})
 }
 
-export async function openByIframeAndWaitForClose(url, eventName, timeout=IFRAME_LIFETIME) {
+export async function openByIframeAndWaitForClose(url, eventName, timeout = IFRAME_LIFETIME) {
 	try {
 		let iframe = openByIframe(url, null, timeout)
 		const result = await waitEventWithPromise(eventName, timeout)
-		setTimeout(()=>{iframe.remove()},2000)
+		setTimeout(() => { iframe.remove() }, 2000)
 		// iframe.remove()
 		return result
 	} catch (e) {
@@ -152,8 +153,8 @@ export function openByIframe(src, iframeid, lifetime = -1) {
 	return iframe
 }
 
-export function notifications(msg, id=null){
-	if(id){
+export function notifications(msg, id = null) {
+	if (id) {
 		id = `${Date.now()}_${id}`
 	}
 	chrome.notifications.create(id, {
@@ -162,4 +163,18 @@ export function notifications(msg, id=null){
 		title: '京东试用',
 		message: msg
 	})
+}
+
+export function readableTime(dateTime, withSeconds = false) {
+	if(typeof dateTime === 'number'){
+		dateTime = DateTime.fromMillis(dateTime)
+	}
+	const mode = withSeconds ? DateTime.TIME_24_WITH_SECONDS : DateTime.TIME_SIMPLE
+	if (DateTime.local().hasSame(dateTime, 'day')) {
+		return '今天 ' + dateTime.setLocale('zh-cn').toLocaleString(mode)
+	}
+	if (DateTime.local().hasSame(dateTime.plus({ days: 1 }), 'day')) {
+		return '昨天 ' + dateTime.setLocale('zh-cn').toLocaleString(mode)
+	}
+	return dateTime.setLocale('zh-cn').toFormat('f')
 }

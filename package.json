@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "license": "MIT",
-  "scripts":{
+  "scripts": {
     "build": "NODE_ENV=production node_modules/.bin/gulp",
     "dev": "node_modules/.bin/gulp dev"
   },
@@ -15,6 +15,7 @@
     "gulp-clean-css": "^4.3.0",
     "gulp-concat": "^2.6.1",
     "gulp-watch": "^5.0.1",
+    "luxon": "^1.23.0",
     "parcel-bundler": "^1.12.4",
     "tippy.js": "^6.1.0",
     "vant": "^2.5.8",

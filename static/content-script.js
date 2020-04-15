@@ -271,7 +271,7 @@ async function emptyFollowVenderList() {
 	simulateClick(submitBtn, true)
 
 	try {  //获取操作失败结果
-		await waitForDialog()
+		await waitForDialog(5000) // wait for 5s
 		console.warn(`${document.querySelector('.ui-dialog').innerText}`)
 	}
 	catch (e) {
@@ -329,8 +329,7 @@ function autoLogin() {
 				simulateClick(document.querySelector(".login-btn a"), true)
 
 				setTimeout(() => {
-					console.warn('自动登录失败，即将自动跳转 jd 主页检查')
-					// window.location.href = 'https://try.jd.com/'
+					console.warn('自动登录失败')
 				}, 3000)
 			})
 	)
