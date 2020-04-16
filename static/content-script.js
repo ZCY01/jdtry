@@ -1,4 +1,4 @@
-import { suspend, mutationsPromise, simulateClick, parseActivityId, storage } from './utils'
+import { suspend, mutationsPromise, simulateClick, parseActivityId, storage} from './utils'
 import { USER_STATUS, ACTIVITY_STATUS } from './config'
 import { Toast } from 'vant';
 
@@ -11,7 +11,7 @@ function checkLoginStatus() {
 	let loginStatus = {
 		status: USER_STATUS.LOGOUT,
 		description: '未检查到用户名，点击打开网页登录',
-		shortDescription: '未登录',
+		shortDescription: `未登录`,
 		timestamp: Date.now()
 	}
 
@@ -19,7 +19,7 @@ function checkLoginStatus() {
 		&& document.querySelector(".nickname").innerText) {
 
 		loginStatus.status = USER_STATUS.LOGIN
-		loginStatus.description = `${document.querySelector('.nickname').innerText}，已登陆`
+		loginStatus.description = `${document.querySelector('.nickname').innerText}`
 		loginStatus.shortDescription = '已登录'
 
 	}
@@ -301,9 +301,9 @@ async function followNumberRetrieval() {
 function autoLogin() {
 	console.log(`即将执行 autoLogin`)
 	simulateClick(document.querySelector('.login-tab.login-tab-r a'), true)
-	const autoLoginBtn = document.createElement('a')
-	autoLoginBtn.innerText = "让京试保记住密码并自动登录"
-	document.querySelector('.forget-pw-safe').insertBefore(autoLoginBtn, null)
+	const autoLoginBtn = document.createElement('p')
+	autoLoginBtn.innerHTML = "<span class='jdtry-login'>让京试记住密码并自动登录</span>"
+	document.querySelector('.item.item-fore5').append(autoLoginBtn)
 	autoLoginBtn.onclick = () => {
 		const username = document.querySelector("#loginname").value
 		const password = document.querySelector("#nloginpwd").value
@@ -311,28 +311,44 @@ function autoLogin() {
 			Toast('请填写账号和密码后重试')
 			return
 		}
-		Toast('正在保存账号和密码并登录')
-		storage.set({ account: { username: username, password: password } })
-		simulateClick(document.querySelector(".login-btn a"), true)
-	}
+		storage.set({ account: { username: username, password: password } }).then(()=>{
+			Toast('保存账号和密码成功')
 
-	suspend(2000).then(
-		storage.get({ account: { username: '', password: '' } })
-			.then(res => {
-				if (!res.account.username || !res.account.password) {
-					console.log(`has no account for auto login`)
-					return
+			chrome.runtime.sendMessage({
+				action: "bg_get_login_status",
+			}, loginStatus=>{
+				console.log(loginStatus)
+				if(loginStatus.status !== USER_STATUS.LOGIN){
+					simulateClick(document.querySelector(".login-btn a"), true)
 				}
-				document.querySelector("#loginname").value = res.account.username
-				document.querySelector("#nloginpwd").value = res.account.password
-
-				simulateClick(document.querySelector(".login-btn a"), true)
-
-				setTimeout(() => {
-					console.warn('自动登录失败')
-				}, 3000)
 			})
-	)
+		})
+
+	}
+	storage.get({autoLogin:false}).then(res => { 
+
+		if(!res.autoLogin){
+			return
+		}
+
+		suspend(2000).then(
+			storage.get({ account: { username: '', password: '' } })
+				.then(res => {
+					if (!res.account.username || !res.account.password) {
+						return
+					}
+					document.querySelector("#loginname").value = res.account.username
+					document.querySelector("#nloginpwd").value = res.account.password
+
+					simulateClick(document.querySelector(".login-btn a"), true)
+
+					setTimeout(() => {
+						console.warn('自动登录失败')
+					}, 3000)
+				})
+		)
+
+	})
 
 }
 
@@ -342,7 +358,7 @@ window.onload = () => {
 
 	checkLoginStatus()
 
-	if (HREF.startsWith('https://passport.jd.com/')) {
+	if(document.querySelector('.login-tab.login-tab-r')){
 		autoLogin()
 		return
 	}

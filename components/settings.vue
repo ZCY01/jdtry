@@ -10,12 +10,8 @@
             </span>
         </template>
     </van-cell>
-    <van-cell title="定时启动" center>
-        <van-stepper disabled v-model="auto.runtime" style="width:100px;float:left" min="0" max="23" title="每天" v-tippy @change="switchStatusChange('runtime')"></van-stepper>
-        <van-switch disabled v-model="auto.run" style="float:right" @change="switchStatusChange('run')"></van-switch>
-    </van-cell>
-    <van-cell title="自动登录" center>
-        <van-switch v-model="auto.login" @change="switchStatusChange('login')"></van-switch>
+    <van-cell title="自动登录" center >
+        <van-switch v-model="autoLogin" @change="switchStatusChange('login')"></van-switch>
     </van-cell>
 
 </van-list>
@@ -29,30 +25,36 @@ import {
     Toast,
 } from 'vant'
 
-
 export default {
     name: "settings",
     data() {
         return {
             settings: [],
-            auto: {
-                run: false,
-                runtime: 0,
-                login: false
-            }
+            autoLogin: false
         };
     },
     mounted: function () {
-        storage
-            .get({
-                settings: []
-            })
-            .then(res => (this.settings = res.settings));
-        storage
-            .get({
-                auto: this.auto
-            })
-            .then(res => (this.auto = res.auto));
+
+        storage.get({
+            settings: []
+        }).then(res => this.settings = res.settings)
+
+        storage.get({
+            autoLogin: false
+        }).then(res => {
+            this.autoLogin = res.autoLogin
+            if (this.autoLogin)
+                storage.get({
+                    account: {
+                        username: '',
+                        password: ''
+                    }
+                })
+                .then(res => {
+                    if (!res.account.username || !res.account.password)
+                        Toast('自动登录：未保存账号')
+                })
+        })
     },
     methods: {
         selected(btn) {
@@ -63,16 +65,16 @@ export default {
         },
         switchStatusChange(key) {
             storage.set({
-                auto: this.auto
+                autoLogin: this.autoLogin
             })
-            if (key === 'login' && this.auto.login) {
-				Toast('即将跳转登录界面，请点击保存')
-				setTimeout(()=>{
-					chrome.tabs.create({
-						url: 'https://passport.jd.com/new/login.aspx',
-						active: true
-					})
-				},2000)
+            if (key === 'login' && this.autoLogin) {
+                Toast('即将跳转登录界面，请点击保存')
+                setTimeout(() => {
+                    chrome.tabs.create({
+                        url: 'https://passport.jd.com/new/login.aspx',
+                        active: true
+                    })
+                }, 2000)
             }
         }
     }

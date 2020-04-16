@@ -30,7 +30,7 @@
         </van-tab>
     </van-tabs>
     <van-tabbar>
-        <van-tabbar-item :title="loginStatus.description" v-tippy @click="checkLoginStatus">
+        <van-tabbar-item :title="descriptionWithTime" v-tippy @click="checkLoginStatus">
             <!-- TODO 这里应该是三个状态 -->
             <span :class="loginStatus.status===USER_STATUS.LOGIN?'login':'not-login'">{{loginStatus.shortDescription}}</span>
             <template #icon>
@@ -68,7 +68,10 @@ import {
     USER_STATUS
 } from '../static/config'
 import {
-	updateTaskInfo
+	readableTime
+} from '../static/utils'
+import {
+    updateTaskInfo
 } from '../static/tasks'
 
 const bg = chrome.extension.getBackgroundPage()
@@ -138,9 +141,14 @@ export default {
         storage.get({
             activity_success_delete_ids: []
         }).then(res => this.activity.success.deleteIds = res.activity_success_delete_ids)
-        bg.checkLoginStatusValid()
+        if (this.loginStatus.status === USER_STATUS.UNKNOWN) {
+			bg.checkLoginStatusValid()
+        }
     },
     computed: {
+		descriptionWithTime(){
+			return `${this.loginStatus.description} | 检查时间：${readableTime(this.loginStatus.timestamp)}`
+		},
         disable_event: function () {
             if (this.loginStatus.status !== this.USER_STATUS.LOGIN) {
                 Toast('未登录')
@@ -177,6 +185,9 @@ export default {
             })
         },
         taskPercentage() {
+			if(this.runtime.totalTask === 0){
+				return 100
+			}
             return (100 * this.runtime.doneTask / this.runtime.totalTask).toFixed(0)
         }
 
@@ -248,7 +259,7 @@ export default {
         },
         checkLoginStatus() {
             switch (this.loginStatus.status) {
-                case this.USER_STATUS.WARMING:
+                case this.USER_STATUS.UNKNOWN:
                     bg.loginStatusRetrieval()
                     break
                 case this.USER_STATUS.LOGOUT:
@@ -278,8 +289,9 @@ export default {
                 Toast('有任务正在执行')
                 return
             }
-			this.runtime.taskId = task.id
-			updateTaskInfo(task)
+            this.runtime.taskId = task.id
+            task.last_run_at = Date.now()
+            updateTaskInfo(task)
             switch (task.action) {
                 case 'activity_apply':
                     const activity = []

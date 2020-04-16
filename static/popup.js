@@ -24,6 +24,12 @@ import { Progress } from 'vant';
 import { Switch } from 'vant';
 import { Divider } from 'vant';
 import { Circle } from 'vant';
+import { Popup } from 'vant';
+import { Form } from 'vant';
+
+Vue.use(Form);
+
+Vue.use(Popup);
 
 Vue.use(Circle);
 

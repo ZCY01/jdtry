@@ -108,7 +108,7 @@ export const emitter = new Events.EventEmitter()
 export const IFRAME_LIFETIME = 15 * 1000
 export const TIMEOUT_ERROR = 'timeout'
 
-function waitEventWithPromise(eventName, timeout = IFRAME_LIFETIME) {
+export function waitEventWithPromise(eventName, timeout = IFRAME_LIFETIME) {
 	return new Promise((resolve, reject) => {
 		let removed = false
 		const listener = (arg) => {
@@ -116,13 +116,15 @@ function waitEventWithPromise(eventName, timeout = IFRAME_LIFETIME) {
 			resolve(arg)
 		}
 		emitter.once(eventName, listener)
-		setTimeout(() => {
-			if (!removed) {
-				console.warn(`${eventName} 超时`)
-				emitter.removeListener(eventName, listener)
-				reject(TIMEOUT_ERROR)
-			}
-		}, timeout)
+		if(timeout > 0){
+			setTimeout(() => {
+				if (!removed) {
+					console.warn(`${eventName} 超时`)
+					emitter.removeListener(eventName, listener)
+					reject(TIMEOUT_ERROR)
+				}
+			}, timeout)
+		}
 	})
 }
 
@@ -153,7 +155,14 @@ export function openByIframe(src, iframeid, lifetime = -1) {
 	return iframe
 }
 
-export function notifications(msg, id = null) {
+let notificationPermission = true
+export function updateNotificationPermission(status){
+	notificationPermission = status
+}
+export function notifications(msg, id = null, force=false) {
+	if(!force && !notificationPermission){
+		return
+	}
 	if (id) {
 		id = `${Date.now()}_${id}`
 	}
@@ -175,6 +184,9 @@ export function readableTime(dateTime, withSeconds = false) {
 	}
 	if (DateTime.local().hasSame(dateTime.plus({ days: 1 }), 'day')) {
 		return '昨天 ' + dateTime.setLocale('zh-cn').toLocaleString(mode)
+	}
+	if (DateTime.local().hasSame(dateTime.plus({ days: -1 }), 'day')) {
+		return '明天 ' + dateTime.setLocale('zh-cn').toLocaleString(mode)
 	}
 	return dateTime.setLocale('zh-cn').toFormat('f')
 }

@@ -104,5 +104,6 @@ export const ACTIVITY_STATUS={
 export const USER_STATUS={
 	LOGIN:0,
 	LOGOUT:1,
-	WARMING:2
+	WARMING:2,
+	UNKNOWN:3
 }

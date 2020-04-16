@@ -9,7 +9,7 @@ const concat = require('gulp-concat')
 function watchFile() {
 	// watch many files
 	watch([
-		'manifest.json', '*.html', 'static/*.js', './components/*.vue','./style/*.css'
+		'manifest.json', '*.html', 'static/*.js', './components/*.vue', './style/*.css'
 	], function () {
 		exports.default()
 	});
@@ -44,7 +44,10 @@ async function buildContentScript() {
 		.pipe(gulp.dest('build/static'))
 	return gulp.src([
 		'dist/content-script.css',
+		'style/content-script.css',
 	])
+		.pipe(concat('content-script.css'))
+		.pipe(cleanCss())
 		.pipe(gulp.dest('build/style'))
 
 }
@@ -55,13 +58,13 @@ async function buildPopupScript() {
 		'dist/popup.js',
 	])
 		.pipe(gulp.dest('build/static'))
-    return gulp.src([
-        'dist/popup.css',
-        'style/popup.css',
+	return gulp.src([
+		'dist/popup.css',
+		'style/popup.css',
 	])
 		.pipe(concat('popup.css'))
-        .pipe(cleanCss())
-        .pipe(gulp.dest('build/style'))
+		.pipe(cleanCss())
+		.pipe(gulp.dest('build/style'))
 }
 
 async function buildBackgroupScript() {

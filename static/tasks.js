@@ -1,60 +1,75 @@
 import { storage } from './utils'
-export const tasks = [
+export const defaultTasks = [
 	{
 		id: 0,
 		title: "获取关注数量",
-		description: "获取关注店铺的数量，及时清理",
+		description: "获取关注店铺的数量，请及时清理",
 		action: 'follow_vender_num_retrieval',
 		last_run_at: 0,
-
+		auto: {
+			run: false,
+			when: 11
+		},
+		frequency: 'nolimit',
 	}, {
 		id: 1,
 		title: "清空关注列表",
 		description: "取关所有已关注的店铺",
 		action: 'empty_follow_vender_list',
 		last_run_at: 0,
+		auto: {
+			run: false,
+			when: 11
+		},
+		frequency: 'daily',
 	}, {
-
 		id: 2,
 		title: "搜索商品",
 		description: "搜索并入库指定条件下的京东试用商品列表",
 		action: 'activity_retrieval',
 		last_run_at: 0,
+		auto: {
+			run: false,
+			when: 11
+		},
+		frequency: 'daily',
 	}, {
 		id: 3,
 		title: "检索成功",
-		description: "检查是否有新的成功的项目",
+		description: "检查是否有新申请成功的项目",
 		action: 'success_activity_retrieval',
 		last_run_at: 0,
+		auto: {
+			run: false,
+			when: 11
+		},
+		frequency: 'nolimit',
 	}, {
 		id: 4,
 		title: "一键申请",
 		description: "立即执行申请试用商品任务",
 		action: 'activity_apply',
 		last_run_at: 0,
+		auto: {
+			run: false,
+			when: 11
+		},
+		frequency: 'daily',
 	}
 ]
 
-for (let task of tasks) {
+export function updateTaskInfo(task) {
 	const taskKey = `task_${task.id}`
-	storage.get({
-		[taskKey]: {
-			last_run_at: 0
-		}
-	}).then(res => {
-		task.last_run_at = res[taskKey].last_run_at
-	})
+	storage.set({ [taskKey]: task })
 }
 
-export function updateTaskInfo(task){
-	let taskid = task
-	if(typeof task === 'object'){
-		taskid = task.id
+export async function getAllTasks() {
+	const allTasks = []
+	for (let task of defaultTasks) {
+		const taskKey = `task_${task.id}`
+		await storage.get(taskKey).then(res => {
+			allTasks.push(res[taskKey])
+		})
 	}
-	const taskKey = `task_${taskid}`
-	storage.set({
-		[taskKey]: {
-			last_run_at: new Date().getTime()
-		}
-	})
+	return allTasks
 }
