@@ -1,7 +1,8 @@
-import { storage, emitter, openByIframeAndWaitForClose, TIMEOUT_ERROR, notifications, openByIframe, IFRAME_LIFETIME } from './utils'
-import { addActivityItems, updateActivityItemsStatus, addSuccessActivityList } from './db'
-import { settingConfig, USER_STATUS, ACTIVITY_STATUS} from './config'
-import {updateTaskInfo} from './tasks'
+import { storage, emitter, openByIframeAndWaitForClose, TIMEOUT_ERROR, notifications, openByIframe, waitEventWithPromise, IFRAME_LIFETIME, updateNotificationPermission } from './utils'
+import { addActivityItems, updateActivityItemsStatus, addSuccessActivityList, getActivityItems } from './db'
+import { settingConfig, USER_STATUS, ACTIVITY_STATUS } from './config'
+import { updateTaskInfo, defaultTasks, getAllTasks } from './tasks'
+import { DateTime } from 'luxon'
 
 
 window.runtime = {
@@ -11,8 +12,8 @@ window.runtime = {
 	applyingActivityIds: [],
 }
 window.loginStatus = {
-	status: USER_STATUS.WARMING,
-	description: '正在获取登录状态/点击重新获取登录状态',
+	status: USER_STATUS.UNKNOWN,
+	description: '正在获取登录状态',
 	shortDescription: '正在检查',
 	timestamp: 0,
 }
@@ -20,27 +21,32 @@ window.saveinfo = {
 	followVenderNum: -1,
 	applidActivityNum: 0, //per day
 	fulfilled: false,
-	date: 0,
+	day: DateTime.local().day
 }
 function savePersistentData() {
 	// storage.set({ loginStatus: loginStatus })  //当浏览器关闭时，cookies 可能会失效，不再保存loginStatus
 	storage.set({ saveinfo: saveinfo })
-	storage.set({
-		auto: {
-			run: false,
-			runtime: 0,
-			login: false
-		}
-	})
+}
+window.reset = function () {
+	console.log('reset now')
+	chrome.storage.local.clear()
+	storage.set({ settings: settingConfig })
+	for (let task of defaultTasks) {
+		updateTaskInfo(task)
+	}
 }
 chrome.runtime.onInstalled.addListener(function (object) {
-	storage.set({ settings: settingConfig })
+	reset()
 })
 chrome.alarms.onAlarm.addListener(function (alarm) {
-	switch (alarm.name) {
-		case 'cycle':
-			checkAndResetSaveInfo()
+	switch (true) {
+		case alarm.name === 'daily':
+			checkAndResetDailyInfo()
 			savePersistentData()
+			break
+		case alarm.name.startsWith('scheduled_'):
+			const when = alarm.name.split('_')[1]
+			autoRun(when)
 			break
 		default:
 			console.warn(`unknown alarm:${alarm.name}`)
@@ -122,9 +128,16 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
 				}
 			}
 			break
+		case 'bg_get_login_status':
+			sendResponse(loginStatus)
+			break
 
 		//from popup.html
 		//
+		case 'bg_scheduled_task':
+			initScheduledTasks()
+			break
+
 		default:
 			console.log(`recevie unkonwn action:${msg.action}`)
 			break
@@ -137,7 +150,7 @@ window.successActivityRetrieval = async function () {
 
 	const login = await checkLoginStatusValid()
 	if (!login) {
-		runtime.taskId = -1
+		taskDone()
 		return
 	}
 
@@ -154,8 +167,7 @@ window.successActivityRetrieval = async function () {
 		await openByIframeAndWaitForClose(url, eventName)
 	}
 
-	runtime.taskId = -1
-
+	taskDone()
 	notifications('成功项目的检索完毕')
 }
 
@@ -200,7 +212,7 @@ window.activityRetrieval = async function () {
 			await activityRetrievalByCondition(cids, activityType)
 		}
 	}
-	runtime.taskId = -1
+	taskDone()
 	console.log('本次搜索完毕')
 	notifications('搜索并导入数据库完毕')
 }
@@ -226,9 +238,10 @@ window.activityApply = async function (activity) {
 
 	const login = await checkLoginStatusValid()
 	if (!login) {
-		runtime.taskId = -1
+		taskDone()
 		return
 	}
+	console.log(`即将申请 ${activity.length} 个商品`)
 
 	runtime.applyingActivityIds.length = 0
 	for (const item of activity) {
@@ -253,7 +266,7 @@ window.activityApply = async function (activity) {
 
 	}
 
-	runtime.taskId = -1
+	taskDone()
 	runtime.applyingActivityIds.length = 0
 
 	console.log('商品试用执行完毕')
@@ -269,23 +282,36 @@ async function pageNumberRetrieval(url) {
 
 window.loginStatusRetrieval = async function (retry = 0) {
 	if (retry >= 2) { // 最多重试两次
-		notifications('检查登录状态失败，请检查网络状态后重试', 'login-fail')
+		loginStatus.description = '请检查网络状态'
+		loginStatus.shortDescription = '检查超时'
+		loginStatus.status = USER_STATUS.UNKNOWN
+		loginStatus.timestamp = DateTime.local().valueOf()
+		notifications('检查登录状态失败，请检查网络状态后重试', 'login-fail', true)
 		return false
 	}
 	const url = 'https://try.jd.com/'
 	const eventName = `login_status_retrieval_event`
 	const result = await openByIframeAndWaitForClose(url, eventName, IFRAME_LIFETIME)
 	if (result === TIMEOUT_ERROR) {
-		loginStatus.shortDescription = '检查超时'
 		return loginStatusRetrieval(retry + 1)
 	}
 	else if (!result.login) {
-		let auto
-		await storage.get('auto').then(res => { auto = res.auto })
-		if (!auto.login) {
-			loginStatus.shortDescription = '未登录'
-			loginStatus.description = '未检查到用户名，请手动登录'
-			notifications('未检查到用户名，请手动登录', 'login-fail')
+		let autoLogin
+		await storage.get({ autoLogin: false }).then(res => { autoLogin = res.autoLogin })
+
+		if (!autoLogin) {
+			notifications('未检查到用户名，请手动登录', 'login-fail', true)
+			return false
+		}
+
+		let accountInfo = true
+		await storage.get({ account: { username: '', password: '' } })
+			.then(res => {
+				if (!res.account.username || !res.account.password)
+					accountInfo = false
+			})
+		if(!accountInfo){
+			notifications('自动登录失败，未保存账号。请点击打开登录界面保存账号', 'login-fail', true)
 			return false
 		}
 
@@ -293,7 +319,7 @@ window.loginStatusRetrieval = async function (retry = 0) {
 		const eventName = `login_status_retrieval_event`
 		const result = await openByIframeAndWaitForClose(url, eventName, IFRAME_LIFETIME)
 		if (result === TIMEOUT_ERROR || !result.login) {
-			notifications('自动登录失败，请手动登录', 'login-fail')
+			notifications('自动登录失败，请手动登录', 'login-fail', true)
 			return false
 		}
 	}
@@ -311,7 +337,7 @@ window.followVenderNumberRetrieval = async function () {
 	else {
 		notifications(`获取关注数量完成，一共关注了${saveinfo.followVenderNum}个店铺`)
 	}
-	runtime.taskId = -1
+	taskDone()
 }
 window.emptyFollowVenderList = async function () {
 
@@ -322,17 +348,17 @@ window.emptyFollowVenderList = async function () {
 	const eventName = 'empty_follow_vender_list_event'
 	await openByIframeAndWaitForClose(url, eventName, 2 * 60 * 1000) // 保留 iframe 两分钟
 	notifications(`已完成清理关注店铺列表，当前关注数量为${saveinfo.followVenderNum}`)
-	runtime.taskId = -1
+	taskDone()
 
 }
 
 window.checkLoginStatusValid = async function () {
 	if (loginStatus.status !== USER_STATUS.LOGIN
-		|| Date.now() > loginStatus.timestamp + 30 * 60 * 1000) {//半小时
+		|| DateTime.local().valueOf() > loginStatus.timestamp + 30 * 60 * 1000) {//半小时
 
 		loginStatus = Object.assign(loginStatus, {
 			status: USER_STATUS.WARMING,
-			description: '正在获取登录状态/点击重新获取登录状态',
+			description: '正在获取登录状态',
 			shortDescription: '正在检查',
 			timestamp: 0,
 		})
@@ -340,14 +366,27 @@ window.checkLoginStatusValid = async function () {
 	}
 	return true
 }
-window.runTask = async function (task) {
+function taskDone() {
+	runtime.taskId = -1
+	emitter.emit('taskDone')
+	savePersistentData()
+}
+window.runTask = async function (task, applyTaskDone = false) {
+
+	console.log(`即将执行 ${task.title}`)
+
 	runtime.taskId = task.id
+	task.last_run_at = DateTime.local().valueOf()
 	updateTaskInfo(task)
 	switch (task.action) {
 		case 'follow_vender_num_retrieval':
 			followVenderNumberRetrieval()
 			break
 		case 'empty_follow_vender_list':
+			if (applyTaskDone) {   //避免当天关注当天取关
+				doneTask()
+				break
+			}
 			emptyFollowVenderList()
 			break
 		case 'activity_retrieval':
@@ -360,35 +399,111 @@ window.runTask = async function (task) {
 			const items = await getActivityItems(1)
 			let deleteIds
 			await storage.get({ activity_sql_delete_ids: [] }).then(res => deleteIds = res.activity_sql_delete_ids)
-			const activity = items.filter(item=>{
-				if(deleteIds.indexOf(item.id) >= 0){
+			const activity = items.filter(item => {
+				if (deleteIds.indexOf(item.id) >= 0) {
 					return false
 				}
 				return item.status === ACTIVITY_STATUS.APPLY
 			})
 			activityApply(activity)
 			break
+		default:
+			taskDone()
+			break
 	}
 }
 
-function checkAndResetSaveInfo() {
-	const date = (new Date()).getDate()
-	if (date !== saveinfo.date) {
-		saveinfo.date = date
+function checkAndResetDailyInfo() {
+	const day = DateTime.local().day
+	if (day !== saveinfo.day) {
+		saveinfo.day = day
 		saveinfo.fulfilled = false
 		saveinfo.applidActivityNum = 0
+		initScheduledTasks()
 	}
+
+	chrome.alarms.clear('daily')
+	chrome.alarms.create('daily', {
+		when: DateTime.local().plus({ day: 1 }).set({
+			hour: 0,
+			minute: 10,
+			second: 0,
+		}).valueOf()
+	})
+}
+
+async function autoRun(when) {
+	if (runtime.taskId !== -1) {
+		setTimeout(() => { autoRun(when) }, 10 * 60 * 1000)
+		return
+	}
+	const login = await loginStatusRetrieval()
+	if (!login) {
+		console.warn('自动执行失败，登录状态有误')
+		return
+	}
+	updateNotificationPermission(false)
+	const allTasks = await getAllTasks()
+
+	const now = DateTime.local()
+	const applyTask = allTasks[allTasks.length - 1]
+	const applyTaskDone = now.day === DateTime.fromMillis(applyTask.last_run_at).day
+
+	for (let task of allTasks) {
+		if (task.auto.run !== true || when != task.auto.when) { // use !=
+			continue
+		}
+		if (task.frequency === 'daily' && now.day === DateTime.fromMillis(task.last_run_at).day) {
+			console.log('当天已执行 ', task)
+			continue  //已经执行过了
+		}
+		console.log('即将自动执行', task)
+		runTask(task, applyTaskDone)
+		await waitEventWithPromise('taskDone', 30 * 60 * 1000) //半个小时
+	}
+	savePersistentData()
+	updateNotificationPermission(true)
+}
+
+async function initScheduledTasks() {
+	//每次加载插件会执行一次
+	//每天执行一次
+	//每次更新自动任务执行一次
+
+	for (let i = 0; i < 24; i++) {
+		chrome.alarms.clear(`scheduled_${i}`)
+	}
+
+	const nowHour = DateTime.local().hour
+	const autorunat = []
+	const allTasks = await getAllTasks()
+	for (let task of allTasks) {
+		if (task.auto.run !== true || nowHour >= task.auto.when) {
+			continue
+		}
+		if (autorunat.indexOf(task.auto.when) === -1) {
+			autorunat.push(task.auto.when)
+		}
+	}
+	for (let when of autorunat) {
+		let timestamp = DateTime.local().set({
+			hour: when,
+			minute: 1,
+			second: 0,
+		})
+		chrome.alarms.create(`scheduled_${when}`, {
+			when: timestamp.valueOf()
+		})
+		console.log(`scheduled_${when} auto run at ${timestamp}`)
+	}
+
 }
 
 window.onload = () => {
-	console.log(`${new Date()} background.js load`)
-	storage.get({ saveinfo: saveinfo }).then(res => saveinfo = res.saveinfo).then(checkAndResetSaveInfo)
-	// storage.get({ loginStatus: loginStatus }).then(res => loginStatus = res.loginStatus)
+	console.log(`${DateTime.local()} background.js loading`)
 	chrome.alarms.clearAll()
-	chrome.alarms.create('cycle', {
-		periodInMinutes: 30
-		// periodInMinutes: 4 * 60 
-	})
+	storage.get({ saveinfo: saveinfo }).then(res => saveinfo = res.saveinfo).then(checkAndResetDailyInfo)
+	initScheduledTasks()
 }
 
 window.onunload = () => {

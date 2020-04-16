@@ -1,0 +1,15 @@
+.jdtry-login{
+	cursor: pointer;
+	margin-top: 5px;
+	margin-bottom: 5px;
+    background: #0b85c3;
+    border: 1px solid #0b85c3;
+    display: block;
+    width: 96%;
+    height: 31px;
+    line-height: 31px;
+    color: #fff;
+    padding: 4px 2%;
+    font-size: 16px;
+    text-align: center;
+}
