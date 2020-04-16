@@ -99,6 +99,7 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
 		case 'bg_login_status_retrieval':
 			loginStatus = Object.assign(loginStatus, msg.loginStatus)
 			emitter.emit('login_status_retrieval_event', { login: msg.status })
+			updateBrowserAction()
 			break
 
 		case 'bg_new_activity_retrieval':
@@ -310,7 +311,7 @@ window.loginStatusRetrieval = async function (retry = 0) {
 				if (!res.account.username || !res.account.password)
 					accountInfo = false
 			})
-		if(!accountInfo){
+		if (!accountInfo) {
 			notifications('自动登录失败，未保存账号。请点击打开登录界面保存账号', 'login-fail', true)
 			return false
 		}
@@ -497,6 +498,36 @@ async function initScheduledTasks() {
 		console.log(`scheduled_${when} auto run at ${timestamp}`)
 	}
 
+}
+function updateBrowserAction() {
+	switch (loginStatus.status) {
+		case USER_STATUS.LOGIN:
+			chrome.browserAction.getBadgeText({}, text => {
+				if (text === "") {
+					return
+				}
+				chrome.browserAction.setBadgeText({
+					text: ""
+				});
+				chrome.browserAction.setTitle({
+					title: "京试"
+				})
+			})
+			break
+		case USER_STATUS.LOGOUT:
+			chrome.browserAction.setBadgeBackgroundColor({
+				color:"#FF2800"
+			})
+			chrome.browserAction.setBadgeText({
+				text: "!"
+			})
+			chrome.browserAction.setTitle({
+				title: "账号登录失效"
+			})
+			break
+		default:
+			break
+	}
 }
 
 window.onload = () => {

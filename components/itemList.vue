@@ -26,7 +26,7 @@
                     <div class="item-info">
                         <div class="van-cell__label item-info__bd">{{item.detail}}</div>
                         <div class="van-cell__label item-info__bd">京东价：{{item.price}}</div>
-                        <div class="van-cell__label item-info__bd">结束时间：{{new Date(item.timestamp).toLocaleString('chinese',{hour12:false})}}</div>
+                        <div class="van-cell__label item-info__bd">结束时间：{{readableTime(item.timestamp)}}</div>
                     </div>
                     <div class="item-actions">
                         <slot name="actions" :item="item"></slot>
@@ -40,6 +40,7 @@
 
 <script>
 const PAGE_SIZE=20
+import {readableTime} from '../static/utils.js'
 export default {
     name: "itemsList",
     props: {
@@ -83,7 +84,8 @@ export default {
                 day: this.day,
                 filter: this.filter.replace(/^\s*|\s*$/g, "")
             })
-        }
+		},
+		readableTime:readableTime
     }
 
 };

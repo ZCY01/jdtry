@@ -20,6 +20,7 @@
         </van-form>
     </van-popup>
     <van-cell-group>
+
         <van-cell v-for="(task,index) of tasks" :key="task.id" center :label="autoTaskInfo(task)">
             <template #title>
                 <div :title="task.description" v-tippy>
@@ -33,8 +34,6 @@
             </div>
         </van-cell>
 
-    </van-cell-group>
-
     <van-cell center>
         <template #title>
             <div title="每日最多可申请300个试用商品" v-tippy>
@@ -43,10 +42,14 @@
         </template>
         <van-circle v-model="rate" :text="text" size="80" layer-color="#ebedf0"></van-circle>
     </van-cell>
+
+    </van-cell-group>
+
     <div v-if="taskId !== -1">
         <van-divider>任务进度</van-divider>
         <van-progress :percentage="taskPercentage" stroke-width="8" style="width:100%"></van-progress>
     </div>
+	
 </div>
 </template>
 

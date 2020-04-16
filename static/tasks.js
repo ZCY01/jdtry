@@ -65,11 +65,19 @@ export function updateTaskInfo(task) {
 
 export async function getAllTasks() {
 	const allTasks = []
+	const allPromiseList = []
 	for (let task of defaultTasks) {
 		const taskKey = `task_${task.id}`
-		await storage.get(taskKey).then(res => {
-			allTasks.push(res[taskKey])
-		})
+		allPromiseList.push(storage.get(taskKey))
 	}
+	await Promise.all(allPromiseList).then(values=>{
+		for(let value of values){
+			for(let key in value){
+				if(key.startsWith('task_')){
+					allTasks.push(value[key])
+				}
+			}
+		}
+	})
 	return allTasks
 }
