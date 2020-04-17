@@ -122,7 +122,7 @@ export function waitEventWithPromise(eventName, timeout = IFRAME_LIFETIME) {
 		emitter.once(eventName, listener)
 		if (timeout > 0) {
 			t = setTimeout(() => {
-				console.warn(`${eventName} 超时`)
+				// console.warn(`${eventName} 超时`)
 				emitter.removeListener(eventName, listener)
 				reject(TIMEOUT_ERROR)
 			}, timeout)
