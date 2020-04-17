@@ -134,13 +134,17 @@ export default {
 
         this.renderSqlActivityItems()
         this.renderSuccessActivityItems()
-        if (this.loginStatus.status === USER_STATUS.UNKNOWN) {
+        if (this.loginStatus.status === USER_STATUS.UNKNOWN ||
+            this.loginStatus.status === USER_STATUS.LOGOUT) {
             bg.checkLoginStatusValid()
         }
     },
     computed: {
         descriptionWithTime() {
-            return `${this.loginStatus.description} | 检查时间：${readableTime(this.loginStatus.timestamp)}`
+			if(this.loginStatus.timestamp){
+				return `${this.loginStatus.description} | 检查时间：${readableTime(this.loginStatus.timestamp)}`
+			}
+			return this.loginStatus.description
         },
         disable_event: function () {
             if (this.loginStatus.status !== this.USER_STATUS.LOGIN) {
@@ -185,14 +189,14 @@ export default {
             bg.activityApply([activity])
         },
         deleteActivityItem(activityItem) {
-			this.activity.sql.items = this.activity.sql.items.filter(item=>item.id!==activityItem.id)
+            this.activity.sql.items = this.activity.sql.items.filter(item => item.id !== activityItem.id)
             deleteItems({
                 database: 'activity',
                 id: activityItem.id
             })
         },
         deleteSuccessActivityItem(activityItem) {
-			this.activity.success.items = this.activity.success.items.filter(item=>item.id!==activityItem.id)
+            this.activity.success.items = this.activity.success.items.filter(item => item.id !== activityItem.id)
             deleteItems({
                 database: 'success',
                 id: activityItem.id
