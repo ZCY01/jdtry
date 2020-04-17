@@ -9,6 +9,7 @@ window.runtime = {
 	taskId: -1,
 	doneTask: 0,
 	totalTask: 0,
+	tryAutoLogin:false,
 	applyingActivityIds: [],
 }
 window.loginStatus = {
@@ -17,9 +18,9 @@ window.loginStatus = {
 	shortDescription: '正在检查',
 	timestamp: 0,
 }
-window.saveinfo = {
+window.saveinfo = { //reset every day
 	followVenderNum: -1,
-	applidActivityNum: 0, //per day
+	applidActivityNum: 0,
 	fulfilled: false,
 	day: DateTime.local().day
 }
@@ -28,8 +29,8 @@ function savePersistentData() {
 	storage.set({ saveinfo: saveinfo })
 }
 window.reset = function () {
-	console.log('reset now')
-	chrome.storage.local.clear()
+	// console.log('reset now')
+	// chrome.storage.local.clear()
 	storage.set({ settings: settingConfig })
 	for (let task of defaultTasks) {
 		updateTaskInfo(task)
@@ -49,7 +50,8 @@ chrome.alarms.onAlarm.addListener(function (alarm) {
 			autoRun(when)
 			break
 		default:
-			console.warn(`unknown alarm:${alarm.name}`)
+			// console.warn(`unknown alarm:${alarm.name}`)
+			break
 	}
 })
 
@@ -66,7 +68,8 @@ chrome.notifications.onClicked.addListener(function (notificationId) {
 			})
 			break
 		default:
-			console.warn(`unknown notificationId:${notificationId}`)
+			// console.warn(`unknown notificationId:${notificationId}`)
+			break
 	}
 })
 
@@ -81,7 +84,7 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
 			// if (saveinfo.fulfilled) {
 			// 	saveinfo.applidActivityNum = 300
 			// }
-			return
+			break
 		case 'bg_activity_applied':
 			if (msg.status) {
 				updateActivityItemsStatus(msg.activityId)
@@ -139,7 +142,7 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
 			initScheduledTasks()
 			break
 		default:
-			console.log(`recevie unkonwn action:${msg.action}`)
+			// console.log(`recevie unkonwn action:${msg.action}`)
 			break
 	}
 })
@@ -266,6 +269,15 @@ window.activityApply = async function (activity) {
 			notifications('今日申请试用份额已满，不再进行试用申请')
 			break
 		}
+
+		const login = await checkLoginStatusValid()
+		if (!login) {  //有一次不知道怎么执行着执行着，变成 LOGOUT 了
+			taskDone()
+			runtime.applyingActivityIds.length = 0
+			notifications('用户登录状态有误，商品试用执行结束')
+			return
+		}
+
 	}
 
 	taskDone()
@@ -303,11 +315,11 @@ window.loginStatusRetrieval = async function (retry = 0) {
 		let autoLogin
 		await storage.get({ autoLogin: false }).then(res => { autoLogin = res.autoLogin })
 
-		if (!autoLogin) {
+		if (runtime.tryAutoLogin || !autoLogin) {
 			notifications('未检查到用户名，请手动登录', 'login-fail', true)
 			return false
 		}
-		
+
 		let accountInfo = true
 		await storage.get({ account: { username: '', password: '' } })
 			.then(res => {
@@ -318,11 +330,12 @@ window.loginStatusRetrieval = async function (retry = 0) {
 			notifications('自动登录失败，未保存账号。请点击打开登录界面保存账号', 'login-fail', true)
 			return false
 		}
-		
-		loginStatus.description      = '正在自动登录'
+
+		runtime.tryAutoLogin = true
+		loginStatus.description = '正在自动登录'
 		loginStatus.shortDescription = '正在登录'
-		loginStatus.status           = USER_STATUS.LOGINING
-		loginStatus.timestamp        = 0
+		loginStatus.status = USER_STATUS.LOGINING
+		loginStatus.timestamp = 0
 
 		const url = 'https://passport.jd.com/new/login.aspx'
 		const eventName = `login_status_retrieval_event`
@@ -330,10 +343,10 @@ window.loginStatusRetrieval = async function (retry = 0) {
 		if (result === TIMEOUT_ERROR || !result.login) {
 			notifications('自动登录失败，请手动登录', 'login-fail', true)
 
-			loginStatus.description      = '登录失败，请手动登录'
+			loginStatus.description = '自动登录失败，请手动登录'
 			loginStatus.shortDescription = '登录失败'
-			loginStatus.status           = USER_STATUS.LOGOUT
-			loginStatus.timestamp        = DateTime.local().valueOf()
+			loginStatus.status = USER_STATUS.LOGOUT
+			loginStatus.timestamp = DateTime.local().valueOf()
 
 			return false
 		}
@@ -361,7 +374,7 @@ window.emptyFollowVenderList = async function () {
 
 	const url = 'https://t.jd.com/follow/vender/list.do'
 	const eventName = 'empty_follow_vender_list_event'
-	await openByIframeAndWaitForClose(url, eventName, 2 * 60 * 1000) // 保留 iframe 两分钟
+	await openByIframeAndWaitForClose(url, eventName, 5 * 60 * 1000) // 保留 iframe 五分钟
 	notifications(`已完成清理关注店铺列表，当前关注数量为${saveinfo.followVenderNum}`)
 	taskDone()
 
@@ -429,6 +442,7 @@ function checkAndResetDailyInfo() {
 		saveinfo.day = day
 		saveinfo.fulfilled = false
 		saveinfo.applidActivityNum = 0
+		runtime.tryAutoLogin = false
 		initScheduledTasks()
 	}
 
@@ -550,7 +564,10 @@ export function updateBrowserAction(force = false) {
 window.onload = () => {
 	console.log(`${DateTime.local()} background.js loading`)
 	chrome.alarms.clearAll()
-	storage.get({ saveinfo: saveinfo }).then(res => saveinfo = res.saveinfo).then(checkAndResetDailyInfo)
+	storage.get({ saveinfo: saveinfo }).then(res => {
+		saveinfo = res.saveinfo
+		checkAndResetDailyInfo()
+	})
 	initScheduledTasks()
 	updateBrowserAction(true)
 }

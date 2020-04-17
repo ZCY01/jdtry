@@ -243,7 +243,7 @@ async function emptyFollowVenderList() {
 		return false
 	}
 	simulateClick(allOptBtn, true)
-	await suspend(2000)
+	await suspend(1000)
 
 	const allCheckBtn = document.querySelector('.batch-box.J-batchBox .op-btn.u-check') // 全选按钮
 	if (!allCheckBtn || allCheckBtn.innerText !== '全选') {
@@ -251,7 +251,7 @@ async function emptyFollowVenderList() {
 		return false
 	}
 	simulateClick(allCheckBtn, true)
-	await suspend(2000)
+	await suspend(1000)
 
 	const unFollowBtn = document.querySelector('.batch-box.J-batchBox .op-btn.u-unfollow')  //取消关注
 	if (!unFollowBtn || unFollowBtn.innerText !== '取消关注') {
@@ -275,12 +275,12 @@ async function emptyFollowVenderList() {
 	}
 	simulateClick(submitBtn, true)
 
-	try {  //获取操作失败结果
-		await waitForDialog(5000) // wait for 5s
+	try {  //等待 ajax post 完成，最多等10秒
+		await waitForDialog(10*1000)
 		console.warn(`${document.querySelector('.ui-dialog').innerText}`)
 	}
 	catch (e) {
-		console.warn(`无法获得 emptyFollowVenderList 操作结果`)
+		console.warn(`无法获得 emptyFollowVenderList 操作结果/网络不好`)
 	}
 	return false
 }
