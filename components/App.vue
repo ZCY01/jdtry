@@ -50,7 +50,8 @@
 <script>
 import {
     getActivityItems,
-    getSuccessActivityItems
+    getSuccessActivityItems,
+    deleteItems
 } from '../static/db'
 import {
     storage
@@ -68,7 +69,7 @@ import {
     USER_STATUS
 } from '../static/config'
 import {
-	readableTime
+    readableTime
 } from '../static/utils'
 import {
     updateTaskInfo
@@ -89,14 +90,12 @@ export default {
             activity: {
                 sql: {
                     items: [],
-                    deleteIds: [],
                     day: 1,
                     filter: ''
 
                 },
                 success: {
                     items: [],
-                    deleteIds: [],
                     day: 14,
                     filter: ''
                 }
@@ -135,20 +134,14 @@ export default {
 
         this.renderSqlActivityItems()
         this.renderSuccessActivityItems()
-        storage.get({
-            activity_sql_delete_ids: []
-        }).then(res => this.activity.sql.deleteIds = res.activity_sql_delete_ids)
-        storage.get({
-            activity_success_delete_ids: []
-        }).then(res => this.activity.success.deleteIds = res.activity_success_delete_ids)
         if (this.loginStatus.status === USER_STATUS.UNKNOWN) {
-			bg.checkLoginStatusValid()
+            bg.checkLoginStatusValid()
         }
     },
     computed: {
-		descriptionWithTime(){
-			return `${this.loginStatus.description} | 检查时间：${readableTime(this.loginStatus.timestamp)}`
-		},
+        descriptionWithTime() {
+            return `${this.loginStatus.description} | 检查时间：${readableTime(this.loginStatus.timestamp)}`
+        },
         disable_event: function () {
             if (this.loginStatus.status !== this.USER_STATUS.LOGIN) {
                 Toast('未登录')
@@ -162,9 +155,6 @@ export default {
         },
         activeSqlActivityItems: function () {
             return this.activity.sql.items.filter(item => {
-                if (this.activity.sql.deleteIds.indexOf(item.id) >= 0) {
-                    return false
-                }
                 const filter = this.activity.sql.filter
                 if (filter) {
                     return item.name.indexOf(filter) >= 0
@@ -174,9 +164,6 @@ export default {
         },
         activeSuccessActivityItems: function () {
             return this.activity.success.items.filter(item => {
-                if (this.activity.success.deleteIds.indexOf(item.id) >= 0) {
-                    return false
-                }
                 const filter = this.activity.success.filter
                 if (filter) {
                     return item.name.indexOf(filter) >= 0
@@ -185,9 +172,9 @@ export default {
             })
         },
         taskPercentage() {
-			if(this.runtime.totalTask === 0){
-				return 100
-			}
+            if (this.runtime.totalTask === 0) {
+                return 100
+            }
             return (100 * this.runtime.doneTask / this.runtime.totalTask).toFixed(0)
         }
 
@@ -195,29 +182,21 @@ export default {
     methods: {
         activityApply(activity) {
             Toast(`即将执行 ${activity.id} 任务`)
-            bg.activityApply([{
-                url: activity.url,
-                id: activity.id
-            }], false)
-
+            bg.activityApply([activity])
         },
         deleteActivityItem(activityItem) {
-            const id = activityItem.id
-            if (this.activity.sql.deleteIds.indexOf(id) < 0) {
-                this.activity.sql.deleteIds.push(id)
-                storage.set({
-                    activity_sql_delete_ids: this.activity.sql.deleteIds
-                })
-            }
+			this.activity.sql.items = this.activity.sql.items.filter(item=>item.id!==activityItem.id)
+            deleteItems({
+                database: 'activity',
+                id: activityItem.id
+            })
         },
         deleteSuccessActivityItem(activityItem) {
-            const id = activityItem.id
-            if (this.activity.success.deleteIds.indexOf(id) < 0) {
-                this.activity.success.deleteIds.push(id)
-                storage.set({
-                    activity_success_delete_ids: this.activity.success.deleteIds
-                })
-            }
+			this.activity.success.items = this.activity.success.items.filter(item=>item.id!==activityItem.id)
+            deleteItems({
+                database: 'success',
+                id: activityItem.id
+            })
         },
         updateACTIVITY_STATUS(activityId, status) {
             for (let item of this.activeSqlActivityItems) {
@@ -294,15 +273,9 @@ export default {
             updateTaskInfo(task)
             switch (task.action) {
                 case 'activity_apply':
-                    const activity = []
-                    for (let item of this.activeSqlActivityItems) {
-                        if (item.status === ACTIVITY_STATUS.APPLY) { //非 已成功
-                            activity.push({
-                                url: item.url,
-                                id: item.id
-                            })
-                        }
-                    }
+                    const activity = this.activeSqlActivityItems.filter(item => {
+                        return item.status === ACTIVITY_STATUS.APPLY
+                    })
                     Toast(`即将申请 ${activity.length} 个试用商品`)
                     bg.activityApply(activity)
                     break

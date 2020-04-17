@@ -1,4 +1,4 @@
-import { suspend, mutationsPromise, simulateClick, parseActivityId, storage} from './utils'
+import { suspend, mutationsPromise, simulateClick, parseActivityId, storage } from './utils'
 import { USER_STATUS, ACTIVITY_STATUS } from './config'
 import { Toast } from 'vant';
 
@@ -192,13 +192,18 @@ async function activityApply() {
 
 function successActivityListRetrieval() {
 	console.log(`即将执行 successActivityListRetrieval`)
-	let activityList = document.querySelectorAll(('.list-detail-item'))
+	let activityList = document.querySelectorAll('.list-detail-item')
 	if (!activityList) {
 		console.warn('无法获得/没有申请成功的商品')
 		return
 	}
 	let successActivityList = []
 	for (let activity of activityList) {
+		const countDown = activity.querySelector('.re-time')
+		if (!countDown) {//过期了
+			continue
+		}
+		const timestamp = parseInt(countDown.getAttribute('end_time')) + countDown.getAttribute('after_hours') * 60 * 60 * 1000
 		successActivityList.push({
 			url: activity.querySelector('.p-name a').href,
 			id: parseInt(activity.getAttribute('activity_id')),
@@ -206,7 +211,7 @@ function successActivityListRetrieval() {
 			name: activity.querySelector('.p-name').innerText,
 			detail: activity.querySelector('.p-detail').innerText,
 			price: parseFloat(activity.querySelector('.p-price span').innerText.substr(1)),
-			timestamp: parseInt(activity.getAttribute('end_time')),
+			timestamp: timestamp,
 			apply: true
 		})
 	}
@@ -311,23 +316,23 @@ function autoLogin() {
 			Toast('请填写账号和密码后重试')
 			return
 		}
-		storage.set({ account: { username: username, password: password } }).then(()=>{
+		storage.set({ account: { username: username, password: password } }).then(() => {
 			Toast('保存账号和密码成功')
 
 			chrome.runtime.sendMessage({
 				action: "bg_get_login_status",
-			}, loginStatus=>{
+			}, loginStatus => {
 				console.log(loginStatus)
-				if(loginStatus.status !== USER_STATUS.LOGIN){
+				if (loginStatus.status !== USER_STATUS.LOGIN) {
 					simulateClick(document.querySelector(".login-btn a"), true)
 				}
 			})
 		})
 
 	}
-	storage.get({autoLogin:false}).then(res => { 
+	storage.get({ autoLogin: false }).then(res => {
 
-		if(!res.autoLogin){
+		if (!res.autoLogin) {
 			return
 		}
 
@@ -358,7 +363,7 @@ window.onload = () => {
 
 	checkLoginStatus()
 
-	if(document.querySelector('.login-tab.login-tab-r')){
+	if (document.querySelector('.login-tab.login-tab-r')) {
 		autoLogin()
 		return
 	}
