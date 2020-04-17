@@ -1,4 +1,5 @@
 import {DateTime} from 'luxon'
+
 export function parseActivityId(href) {
 	let activityIdReg = /http[s]:\/\/try.jd.com\/(\d*)\.html/
 	let activityId = activityIdReg.exec(href)

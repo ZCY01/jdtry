@@ -1,6 +1,7 @@
 import Dexie from 'dexie'
 import { ACTIVITY_STATUS } from './config'
 import { notifications } from './utils'
+import { updateBrowserAction } from './background'
 
 
 //
@@ -40,6 +41,9 @@ export async function getActivityItems(days = 20) {
 	await db.activityItems.where('timestamp').below(now).delete()
 	let items = await db.activityItems.where('timestamp')
 		.below(endTimeOnFurture)
+		.and(item=>{
+			return !item.deleted
+		})
 		.sortBy('price')
 	return items.reverse()
 }
@@ -66,15 +70,30 @@ export async function addSuccessActivityList(items) {
 			action: "popup_update_success_activity",
 		})
 		notifications('恭喜！发现新的成功的商品！')
+		updateBrowserAction(true)
 	}
 }
 
 export async function getSuccessActivityItems(days = 15) {
-	const endTime = Date.now() - 60 * 60 * 1000 * 24 * days
+	const now = Date.now()
+	const endTime = now + 60 * 60 * 1000 * 24 * days
+	await db.successActivityItems.where('timestamp').below(now).delete()
 	let items = await db.successActivityItems.where('timestamp')
-		.above(endTime)
+		.below(endTime)
+		.and(item=>{
+			return !item.deleted
+		})
 		.sortBy('timestamp')
 	return items.reverse()
+}
+export function deleteItems(option){
+	if(option.database === 'activity'){
+		db.activityItems.update(option.id, { deleted: true })
+	}
+	else{ //success
+		db.successActivityItems.update(option.id, { deleted: true})
+		updateBrowserAction(true)
+	}
 }
 
 export function updateActivityItemsStatus(activityId) {

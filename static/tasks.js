@@ -1,4 +1,7 @@
 import { storage } from './utils'
+const ONE_HOUR = 60 * 60 * 1000
+const HALF_HOUR = 30 * 60 * 1000
+const TEN_MINUTE = 10 * 60 * 1000
 export const defaultTasks = [
 	{
 		id: 0,
@@ -8,9 +11,10 @@ export const defaultTasks = [
 		last_run_at: 0,
 		auto: {
 			run: false,
-			when: 11
+			when: 11,
+			frequency: 'nolimit',
+			taskLifetime: TEN_MINUTE,
 		},
-		frequency: 'nolimit',
 	}, {
 		id: 1,
 		title: "清空关注列表",
@@ -19,9 +23,10 @@ export const defaultTasks = [
 		last_run_at: 0,
 		auto: {
 			run: false,
-			when: 11
+			when: 11,
+			frequency: 'daily',
+			taskLifetime: HALF_HOUR,
 		},
-		frequency: 'daily',
 	}, {
 		id: 2,
 		title: "搜索商品",
@@ -30,9 +35,10 @@ export const defaultTasks = [
 		last_run_at: 0,
 		auto: {
 			run: false,
-			when: 11
+			when: 11,
+			frequency: 'daily',
+			taskLifetime: HALF_HOUR,
 		},
-		frequency: 'daily',
 	}, {
 		id: 3,
 		title: "检索成功",
@@ -41,9 +47,10 @@ export const defaultTasks = [
 		last_run_at: 0,
 		auto: {
 			run: false,
-			when: 11
+			when: 11,
+			frequency: 'nolimit',
+			taskLifetime: TEN_MINUTE
 		},
-		frequency: 'nolimit',
 	}, {
 		id: 4,
 		title: "一键申请",
@@ -52,9 +59,10 @@ export const defaultTasks = [
 		last_run_at: 0,
 		auto: {
 			run: false,
-			when: 11
+			when: 11,
+			frequency: 'daily',
+			taskLifetime: ONE_HOUR
 		},
-		frequency: 'daily',
 	}
 ]
 
@@ -70,10 +78,10 @@ export async function getAllTasks() {
 		const taskKey = `task_${task.id}`
 		allPromiseList.push(storage.get(taskKey))
 	}
-	await Promise.all(allPromiseList).then(values=>{
-		for(let value of values){
-			for(let key in value){
-				if(key.startsWith('task_')){
+	await Promise.all(allPromiseList).then(values => {
+		for (let value of values) {
+			for (let key in value) {
+				if (key.startsWith('task_')) {
 					allTasks.push(value[key])
 				}
 			}

@@ -1,5 +1,5 @@
 import { storage, emitter, openByIframeAndWaitForClose, TIMEOUT_ERROR, notifications, openByIframe, waitEventWithPromise, IFRAME_LIFETIME, updateNotificationPermission } from './utils'
-import { addActivityItems, updateActivityItemsStatus, addSuccessActivityList, getActivityItems } from './db'
+import { addActivityItems, updateActivityItemsStatus, addSuccessActivityList, getActivityItems, getSuccessActivityItems } from './db'
 import { settingConfig, USER_STATUS, ACTIVITY_STATUS } from './config'
 import { updateTaskInfo, defaultTasks, getAllTasks } from './tasks'
 import { DateTime } from 'luxon'
@@ -138,7 +138,6 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
 		case 'bg_scheduled_task':
 			initScheduledTasks()
 			break
-
 		default:
 			console.log(`recevie unkonwn action:${msg.action}`)
 			break
@@ -242,6 +241,11 @@ window.activityApply = async function (activity) {
 		taskDone()
 		return
 	}
+	if (saveinfo.fulfilled) {
+		taskDone()
+		notifications('今日申请试用份额已满，不再进行试用申请')
+		return
+	}
 	console.log(`即将申请 ${activity.length} 个商品`)
 
 	runtime.applyingActivityIds.length = 0
@@ -252,6 +256,9 @@ window.activityApply = async function (activity) {
 	}
 
 	for (const item of activity) {
+		const eventName = `${item.id}_activity_applied_event`
+		await openByIframeAndWaitForClose(item.url, eventName)
+		runtime.applyingActivityIds.shift()
 
 		runtime.doneTask++
 		if (saveinfo.fulfilled) {
@@ -259,20 +266,16 @@ window.activityApply = async function (activity) {
 			notifications('今日申请试用份额已满，不再进行试用申请')
 			break
 		}
-
-		const eventName = `${item.id}_activity_applied_event`
-
-		await openByIframeAndWaitForClose(item.url, eventName)
-		runtime.applyingActivityIds.shift()
-
 	}
 
 	taskDone()
 	runtime.applyingActivityIds.length = 0
 
 	console.log('商品试用执行完毕')
-	notifications('商品试用执行完毕')
-	followVenderNumberRetrieval()
+	if (activity.length > 1) {
+		notifications('商品试用执行完毕')
+		followVenderNumberRetrieval()
+	}
 }
 
 async function pageNumberRetrieval(url) {
@@ -398,12 +401,7 @@ window.runTask = async function (task, applyTaskDone = false) {
 			break
 		case 'activity_apply':
 			const items = await getActivityItems(1)
-			let deleteIds
-			await storage.get({ activity_sql_delete_ids: [] }).then(res => deleteIds = res.activity_sql_delete_ids)
 			const activity = items.filter(item => {
-				if (deleteIds.indexOf(item.id) >= 0) {
-					return false
-				}
 				return item.status === ACTIVITY_STATUS.APPLY
 			})
 			activityApply(activity)
@@ -454,13 +452,15 @@ async function autoRun(when) {
 		if (task.auto.run !== true || when != task.auto.when) { // use !=
 			continue
 		}
-		if (task.frequency === 'daily' && now.day === DateTime.fromMillis(task.last_run_at).day) {
+		if (task.auto.frequency === 'daily' && now.day === DateTime.fromMillis(task.last_run_at).day) {
 			console.log('当天已执行 ', task)
 			continue  //已经执行过了
 		}
 		console.log('即将自动执行', task)
 		runTask(task, applyTaskDone)
-		await waitEventWithPromise('taskDone', 30 * 60 * 1000) //半个小时
+		await waitEventWithPromise('taskDone', task.auto.taskLifetime).catch( // 半小时
+			err => { console.warn('自动任务执行超时', task) }
+		)
 	}
 	savePersistentData()
 	updateNotificationPermission(true)
@@ -499,33 +499,35 @@ async function initScheduledTasks() {
 	}
 
 }
-function updateBrowserAction() {
+
+export function updateBrowserAction(force = false) {
+	const warmMsg = " ! "
+	chrome.browserAction.setBadgeBackgroundColor({
+		color: "#FF2800"
+	})
 	switch (loginStatus.status) {
-		case USER_STATUS.LOGIN:
-			chrome.browserAction.getBadgeText({}, text => {
-				if (text === "") {
-					return
-				}
-				chrome.browserAction.setBadgeText({
-					text: ""
-				});
-				chrome.browserAction.setTitle({
-					title: "京试"
-				})
-			})
-			break
 		case USER_STATUS.LOGOUT:
-			chrome.browserAction.setBadgeBackgroundColor({
-				color:"#FF2800"
-			})
 			chrome.browserAction.setBadgeText({
-				text: "!"
+				text: warmMsg
 			})
 			chrome.browserAction.setTitle({
 				title: "账号登录失效"
 			})
 			break
 		default:
+			chrome.browserAction.getBadgeText({}, text => {
+				if (!force && text !== warmMsg) {
+					return
+				}
+				chrome.browserAction.setTitle({
+					title: "京试"
+				})
+				getSuccessActivityItems().then(list => {
+					chrome.browserAction.setBadgeText({
+						text: list.length === 0 ? '' : list.length.toString()
+					})
+				})
+			})
 			break
 	}
 }
@@ -535,6 +537,7 @@ window.onload = () => {
 	chrome.alarms.clearAll()
 	storage.get({ saveinfo: saveinfo }).then(res => saveinfo = res.saveinfo).then(checkAndResetDailyInfo)
 	initScheduledTasks()
+	updateBrowserAction(true)
 }
 
 window.onunload = () => {
