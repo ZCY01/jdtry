@@ -1,4 +1,4 @@
-import {DateTime} from 'luxon'
+import { DateTime } from 'luxon'
 
 export function parseActivityId(href) {
 	let activityIdReg = /http[s]:\/\/try.jd.com\/(\d*)\.html/
@@ -11,11 +11,13 @@ export function parseActivityId(href) {
 
 export function mutationsPromise(element, observerConfig, callback, rejectTime = 0, rejectMsg = "") {
 	return new Promise((resolve, reject) => {
-		let disconnect = false
+		let t
 		const observer = new MutationObserver((mutations) => {
 			for (let mutation of mutations) {
 				if (callback(mutation)) {
-					disconnect = true
+					if (t) {
+						clearTimeout(t)
+					}
 					observer.disconnect()
 					resolve(mutation)
 					break
@@ -24,11 +26,9 @@ export function mutationsPromise(element, observerConfig, callback, rejectTime =
 		})
 		observer.observe(element, observerConfig)
 		if (rejectTime > 0) {
-			setTimeout(() => {
-				if (!disconnect) {
-					observer.disconnect()
-					reject(rejectMsg)
-				}
+			t = setTimeout(() => {
+				observer.disconnect()
+				reject(rejectMsg)
 			}, rejectTime)
 		}
 	})
@@ -108,22 +108,23 @@ import Events from 'events'
 export const emitter = new Events.EventEmitter()
 export const IFRAME_LIFETIME = 15 * 1000
 export const TIMEOUT_ERROR = 'timeout'
+window.emitter = emitter  //TODO
 
 export function waitEventWithPromise(eventName, timeout = IFRAME_LIFETIME) {
 	return new Promise((resolve, reject) => {
-		let removed = false
+		let t
 		const listener = (arg) => {
-			removed = true
+			if (t) {
+				clearTimeout(t)
+			}
 			resolve(arg)
 		}
 		emitter.once(eventName, listener)
-		if(timeout > 0){
-			setTimeout(() => {
-				if (!removed) {
-					console.warn(`${eventName} 超时`)
-					emitter.removeListener(eventName, listener)
-					reject(TIMEOUT_ERROR)
-				}
+		if (timeout > 0) {
+			t = setTimeout(() => {
+				console.warn(`${eventName} 超时`)
+				emitter.removeListener(eventName, listener)
+				reject(TIMEOUT_ERROR)
 			}, timeout)
 		}
 	})
@@ -157,11 +158,11 @@ export function openByIframe(src, iframeid, lifetime = -1) {
 }
 
 let notificationPermission = true
-export function updateNotificationPermission(status){
+export function updateNotificationPermission(status) {
 	notificationPermission = status
 }
-export function notifications(msg, id = null, force=false) {
-	if(!force && !notificationPermission){
+export function notifications(msg, id = null, force = false) {
+	if (!force && !notificationPermission) {
 		return
 	}
 	if (id) {
@@ -176,7 +177,7 @@ export function notifications(msg, id = null, force=false) {
 }
 
 export function readableTime(dateTime, withSeconds = false) {
-	if(typeof dateTime === 'number'){
+	if (typeof dateTime === 'number') {
 		dateTime = DateTime.fromMillis(dateTime)
 	}
 	const mode = withSeconds ? DateTime.TIME_24_WITH_SECONDS : DateTime.TIME_SIMPLE

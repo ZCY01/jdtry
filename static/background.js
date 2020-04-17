@@ -307,7 +307,7 @@ window.loginStatusRetrieval = async function (retry = 0) {
 			notifications('未检查到用户名，请手动登录', 'login-fail', true)
 			return false
 		}
-
+		
 		let accountInfo = true
 		await storage.get({ account: { username: '', password: '' } })
 			.then(res => {
@@ -318,12 +318,23 @@ window.loginStatusRetrieval = async function (retry = 0) {
 			notifications('自动登录失败，未保存账号。请点击打开登录界面保存账号', 'login-fail', true)
 			return false
 		}
+		
+		loginStatus.description      = '正在自动登录'
+		loginStatus.shortDescription = '正在登录'
+		loginStatus.status           = USER_STATUS.LOGINING
+		loginStatus.timestamp        = 0
 
 		const url = 'https://passport.jd.com/new/login.aspx'
 		const eventName = `login_status_retrieval_event`
 		const result = await openByIframeAndWaitForClose(url, eventName, IFRAME_LIFETIME)
 		if (result === TIMEOUT_ERROR || !result.login) {
 			notifications('自动登录失败，请手动登录', 'login-fail', true)
+
+			loginStatus.description      = '登录失败，请手动登录'
+			loginStatus.shortDescription = '登录失败'
+			loginStatus.status           = USER_STATUS.LOGOUT
+			loginStatus.timestamp        = DateTime.local().valueOf()
+
 			return false
 		}
 	}
@@ -458,8 +469,12 @@ async function autoRun(when) {
 		}
 		console.log('即将自动执行', task)
 		runTask(task, applyTaskDone)
-		await waitEventWithPromise('taskDone', task.auto.taskLifetime).catch( // 半小时
-			err => { console.warn('自动任务执行超时', task) }
+		// await waitEventWithPromise('taskDone', task.auto.taskLifetime).catch(
+		await waitEventWithPromise('taskDone', 2 * 60 * 60 * 1000).catch( // 等待两个小时。实际上不会等待这么久。
+			err => {
+				console.warn(`有bug, ${task.title} 调用 taskDone 了吗？！！！`)
+				taskDone()
+			}
 		)
 	}
 	savePersistentData()
