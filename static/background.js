@@ -9,7 +9,7 @@ window.runtime = {
 	taskId: -1,
 	doneTask: 0,
 	totalTask: 0,
-	tryAutoLogin:false,
+	tryAutoLogin: false,
 	applyingActivityIds: [],
 }
 window.loginStatus = {
@@ -22,13 +22,14 @@ window.saveinfo = { //reset every day
 	followVenderNum: -1,
 	applidActivityNum: 0,
 	fulfilled: false,
+	noMoreVender: false,
 	day: DateTime.local().day
 }
 function savePersistentData() {
 	// storage.set({ loginStatus: loginStatus })  //当浏览器关闭时，cookies 可能会失效，不再保存loginStatus
 	storage.set({ saveinfo: saveinfo })
 }
-window.reset = function () {
+function reset() {
 	// console.log('reset now')
 	// chrome.storage.local.clear()
 	storage.set({ settings: settingConfig })
@@ -46,6 +47,7 @@ chrome.alarms.onAlarm.addListener(function (alarm) {
 			savePersistentData()
 			break
 		case alarm.name.startsWith('scheduled_'):
+			console.log(alarm.name)
 			const when = alarm.name.split('_')[1]
 			autoRun(when)
 			break
@@ -81,9 +83,12 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
 		//from content-script
 		case 'bg_update_saveinfo':
 			saveinfo = Object.assign(saveinfo, msg.data)  //should check key?
-			// if (saveinfo.fulfilled) {
-			// 	saveinfo.applidActivityNum = 300
-			// }
+			if (saveinfo.fulfilled) {
+				saveinfo.applidActivityNum = 300
+			}
+			if (saveinfo.noMoreVender) {
+				saveinfo.followVenderNum = 500
+			}
 			break
 		case 'bg_activity_applied':
 			if (msg.status) {
@@ -122,6 +127,9 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
 			emitter.emit(msg.href + '_success_activity_retrieval_event')
 			break
 		case 'bg_follow_vender_num_retrieval':
+			if (saveinfo.noMoreVender && msg.followVenderNum < saveinfo.followVenderNum) {
+				saveinfo.noMoreVender = false   //update info
+			}
 			saveinfo.followVenderNum = msg.followVenderNum
 			emitter.emit('bg_follow_vender_num_retrieval_event')
 
@@ -147,16 +155,15 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
 	}
 })
 
-window.successActivityRetrieval = async function () {
-	runtime.doneTask = 1
-	runtime.totalTask = 100
+async function successActivityRetrieval() {
 
-	const login = await checkLoginStatusValid()
-	if (!login) {
+	if (!await checkLoginStatusValid()) {
 		taskDone()
 		return
 	}
 
+	runtime.doneTask = 1
+	runtime.totalTask = 100
 	console.log(`正在获取试用成功列表`)
 	let url = `https://try.jd.com/user/myTrial?page=1&selected=2`
 	let pageNum = await pageNumberRetrieval(url)
@@ -175,7 +182,7 @@ window.successActivityRetrieval = async function () {
 }
 
 
-window.activityRetrieval = async function () {
+async function activityRetrieval() {
 	runtime.doneTask = 0
 	runtime.totalTask = 100
 
@@ -236,19 +243,32 @@ async function activityRetrievalByCondition(cids, activityType) {
 }
 window.activityApply = async function (activity) {
 
+	const unSatisfyCondition = async () => {
+		let msg
+
+		if (!await checkLoginStatusValid()) {
+			msg = '用户未登录，商品试用执行结束'
+		}
+		if (saveinfo.fulfilled) {
+			msg = '今日申请试用份额已满，不再进行试用申请'
+		}
+		if (saveinfo.noMoreVender) {
+			msg = '关注数超过上限了哦，请及时清理'
+		}
+		if (msg) {
+			taskDone()
+			notifications(msg)
+			runtime.applyingActivityIds.length = 0
+		}
+		return msg !== undefined
+	}
+
+	if (await unSatisfyCondition()) {
+		return
+	}
+
 	runtime.doneTask = 0
 	runtime.totalTask = activity.length ? activity.length : 1
-
-	const login = await checkLoginStatusValid()
-	if (!login) {
-		taskDone()
-		return
-	}
-	if (saveinfo.fulfilled) {
-		taskDone()
-		notifications('今日申请试用份额已满，不再进行试用申请')
-		return
-	}
 	console.log(`即将申请 ${activity.length} 个商品`)
 
 	runtime.applyingActivityIds.length = 0
@@ -264,20 +284,9 @@ window.activityApply = async function (activity) {
 		runtime.applyingActivityIds.shift()
 
 		runtime.doneTask++
-		if (saveinfo.fulfilled) {
-			console.warn('今日申请试用份额已满，不再进行试用申请')
-			notifications('今日申请试用份额已满，不再进行试用申请')
-			break
+		if (await unSatisfyCondition()) {
+			return  // 这里直接返回即可，已经调用taskdone
 		}
-
-		const login = await checkLoginStatusValid()
-		if (!login) {  //有一次不知道怎么执行着执行着，变成 LOGOUT 了
-			taskDone()
-			runtime.applyingActivityIds.length = 0
-			notifications('用户登录状态有误，商品试用执行结束')
-			return
-		}
-
 	}
 
 	taskDone()
@@ -296,7 +305,7 @@ async function pageNumberRetrieval(url) {
 	return result === TIMEOUT_ERROR ? 0 : result.pageNum
 }
 
-window.loginStatusRetrieval = async function (retry = 0) {
+async function loginStatusRetrieval(retry = 0) {
 	if (retry >= 2) { // 最多重试两次
 		loginStatus.description = '请检查网络状态'
 		loginStatus.shortDescription = '检查超时'
@@ -353,7 +362,13 @@ window.loginStatusRetrieval = async function (retry = 0) {
 	}
 	return true
 }
-window.followVenderNumberRetrieval = async function () {
+async function followVenderNumberRetrieval() {
+
+	if (!await checkLoginStatusValid()) {
+		taskDone()
+		return
+	}
+
 	runtime.totalTask = 1
 	runtime.doneTask = 1
 	const url = 'https://t.jd.com/follow/vender/list.do?index=1'
@@ -367,7 +382,12 @@ window.followVenderNumberRetrieval = async function () {
 	}
 	taskDone()
 }
-window.emptyFollowVenderList = async function () {
+async function emptyFollowVenderList() {
+
+	if (!await checkLoginStatusValid()) {
+		taskDone()
+		return
+	}
 
 	runtime.doneTask = 0
 	runtime.totalTask = saveinfo.followVenderNum > 0 ? saveinfo.followVenderNum : 500
@@ -412,7 +432,8 @@ window.runTask = async function (task, applyTaskDone = false) {
 			break
 		case 'empty_follow_vender_list':
 			if (applyTaskDone) {   //避免当天关注当天取关
-				doneTask()
+				console.log('自动清理关注店铺任务暂停')
+				taskDone()
 				break
 			}
 			emptyFollowVenderList()
@@ -438,6 +459,7 @@ window.runTask = async function (task, applyTaskDone = false) {
 
 function checkAndResetDailyInfo() {
 	const day = DateTime.local().day
+	console.log(`reset daily info, today:${day}`)
 	if (day !== saveinfo.day) {
 		saveinfo.day = day
 		saveinfo.fulfilled = false
@@ -461,8 +483,7 @@ async function autoRun(when) {
 		setTimeout(() => { autoRun(when) }, 10 * 60 * 1000)
 		return
 	}
-	const login = await loginStatusRetrieval()
-	if (!login) {
+	if (!await loginStatusRetrieval()) {
 		console.warn('自动执行失败，登录状态有误')
 		return
 	}
@@ -470,7 +491,7 @@ async function autoRun(when) {
 	const allTasks = await getAllTasks()
 
 	const now = DateTime.local()
-	const applyTask = allTasks[allTasks.length - 1]
+	const applyTask = allTasks.filter(task => { return task.action === 'activity_apply' })[0]
 	const applyTaskDone = now.day === DateTime.fromMillis(applyTask.last_run_at).day
 
 	for (let task of allTasks) {
