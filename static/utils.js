@@ -106,7 +106,7 @@ export const storage = {
 
 import Events from 'events'
 export const emitter = new Events.EventEmitter()
-export const IFRAME_LIFETIME = 15 * 1000
+export const IFRAME_LIFETIME = 20 * 1000
 export const TIMEOUT_ERROR = 'timeout'
 window.emitter = emitter  //TODO
 
