@@ -243,7 +243,7 @@ export default {
         checkLoginStatus() {
             switch (this.loginStatus.status) {
                 case this.USER_STATUS.UNKNOWN:
-                    bg.loginStatusRetrieval()
+                    bg.checkLoginStatusValid()
                     break
                 case this.USER_STATUS.LOGOUT:
                     chrome.tabs.create({

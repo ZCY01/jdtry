@@ -98,7 +98,7 @@ async function dealWithDialogAlert(innerText) {
 	else if (innerText.indexOf('关注数超过上限了哦') >= 0) {
 		chrome.runtime.sendMessage({           //先将就用这个！
 			action: "bg_update_saveinfo",
-			data: { fulfilled: true }
+			data: { noMoreVender: true }
 		})
 		throw Error('关注数超过上限了哦～先清理下关注列表吧')
 	}
