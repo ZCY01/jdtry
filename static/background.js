@@ -251,6 +251,7 @@ window.activityApply = async function (activity) {
 		}
 		if (saveinfo.fulfilled) {
 			msg = '今日申请试用份额已满，不再进行试用申请'
+			followVenderNumberRetrieval(false)
 		}
 		if (saveinfo.noMoreVender) {
 			msg = '关注数超过上限了哦，请及时清理'
@@ -289,14 +290,14 @@ window.activityApply = async function (activity) {
 		}
 	}
 
-	taskDone()
-	runtime.applyingActivityIds.length = 0
-
 	console.log('商品试用执行完毕')
 	if (activity.length > 1) {
-		notifications('商品试用执行完毕')
-		followVenderNumberRetrieval()
+		notifications(`申请完毕，今日已申请${saveinfo.applidActivityNum}个商品`)
+		followVenderNumberRetrieval(false)
 	}
+
+	taskDone()
+	runtime.applyingActivityIds.length = 0
 }
 
 async function pageNumberRetrieval(url) {
@@ -362,7 +363,7 @@ async function loginStatusRetrieval(retry = 0) {
 	}
 	return true
 }
-async function followVenderNumberRetrieval() {
+async function followVenderNumberRetrieval(showNotification = true) {
 
 	if (!await checkLoginStatusValid()) {
 		taskDone()
@@ -374,10 +375,10 @@ async function followVenderNumberRetrieval() {
 	const url = 'https://t.jd.com/follow/vender/list.do?index=1'
 	const eventName = 'bg_follow_vender_num_retrieval_event'
 	const result = await openByIframeAndWaitForClose(url, eventName, IFRAME_LIFETIME * 2)
-	if (result === TIMEOUT_ERROR) {
+	if (showNotification && result === TIMEOUT_ERROR) {
 		notifications('获取关注数量超时')
 	}
-	else {
+	else if (showNotification) {
 		notifications(`获取关注数量完成，一共关注了${saveinfo.followVenderNum}个店铺`)
 	}
 	taskDone()
@@ -416,10 +417,10 @@ window.checkLoginStatusValid = async function () {
 }
 function taskDone() {
 	runtime.taskId = -1
-	emitter.emit('taskDone')
 	savePersistentData()
+	setTimeout(() => emitter.emit('taskDone'), 0) // 避免还没 wait 就发送了。。。
 }
-window.runTask = async function (task, applyTaskDone = false) {
+window.runTask = async function (task, auto = false, applyTaskDone = false) {
 
 	console.log(`即将执行 ${task.title}`)
 
@@ -431,8 +432,13 @@ window.runTask = async function (task, applyTaskDone = false) {
 			followVenderNumberRetrieval()
 			break
 		case 'empty_follow_vender_list':
-			if (applyTaskDone) {   //避免当天关注当天取关
+			if (auto && applyTaskDone) {   //避免当天关注当天取关
 				console.log('自动清理关注店铺任务暂停')
+				taskDone()
+				break
+			}
+			if (auto && saveinfo.followVenderNum < 250) {   //避免当天关注当天取关
+				console.log(`当前关注为：${saveinfo.followVenderNum}，仍有足够名额`)
 				taskDone()
 				break
 			}
@@ -503,7 +509,7 @@ async function autoRun(when) {
 			continue  //已经执行过了
 		}
 		console.log('即将自动执行', task)
-		runTask(task, applyTaskDone)
+		setTimeout(() => runTask(task, true, applyTaskDone), 0)
 		// await waitEventWithPromise('taskDone', task.auto.taskLifetime).catch(
 		await waitEventWithPromise('taskDone', 2 * 60 * 60 * 1000).catch( // 等待两个小时。实际上不会等待这么久。
 			err => {
