@@ -136,7 +136,7 @@ export default {
         this.renderSuccessActivityItems()
         if (this.loginStatus.status === USER_STATUS.UNKNOWN ||
             this.loginStatus.status === USER_STATUS.LOGOUT) {
-            bg.checkLoginStatusValid()
+            // bg.checkLoginStatusValid()
         }
     },
     computed: {
@@ -264,10 +264,10 @@ export default {
             //     Toast('正在检查登录状态，请稍后')
             //     return
             // }
-            if (this.loginStatus.status === USER_STATUS.LOGOUT) {
-                Toast('未登录！请手动登录！')
-                return
-            }
+            // if (this.loginStatus.status === USER_STATUS.LOGOUT) {
+            //     Toast('未登录！请手动登录！')
+            //     return
+            // }
             if (this.runtime.taskId !== -1) {
                 Toast('有任务正在执行')
                 return

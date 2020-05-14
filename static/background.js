@@ -1,5 +1,5 @@
-import { storage, emitter, openByIframeAndWaitForClose, TIMEOUT_ERROR, notifications, openByIframe, waitEventWithPromise, IFRAME_LIFETIME, updateNotificationPermission } from './utils'
-import { addActivityItems, updateActivityItemsStatus, addSuccessActivityList, getActivityItems, getSuccessActivityItems } from './db'
+import { storage, emitter, openByIframeAndWaitForClose, TIMEOUT_ERROR, notifications, openByIframe, waitEventWithPromise, IFRAME_LIFETIME, setNotificationLevel, NOTIFICATION_LEVEL } from './utils'
+import { addActivityItems, updateActivityItemsStatus, addSuccessActivityList, getActivityItems, getSuccessActivityItems, clearActivityItems } from './db'
 import { settingConfig, USER_STATUS, ACTIVITY_STATUS } from './config'
 import { updateTaskInfo, defaultTasks, getAllTasks } from './tasks'
 import { DateTime } from 'luxon'
@@ -26,7 +26,7 @@ window.saveinfo = { //reset every day
 	day: DateTime.local().day
 }
 function savePersistentData() {
-	// storage.set({ loginStatus: loginStatus })  //当浏览器关闭时，cookies 可能会失效，不再保存loginStatus
+	storage.set({ loginStatus: loginStatus })
 	storage.set({ saveinfo: saveinfo })
 }
 function reset() {
@@ -79,7 +79,6 @@ chrome.notifications.onClicked.addListener(function (notificationId) {
 
 chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
 	switch (msg.action) {
-
 		//from content-script
 		case 'bg_update_saveinfo':
 			saveinfo = Object.assign(saveinfo, msg.data)  //should check key?
@@ -149,6 +148,9 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
 		case 'bg_scheduled_task':
 			initScheduledTasks()
 			break
+		case 'bg_clear_sql_activitys':
+			clearActivityItems()
+			break
 		default:
 			// console.log(`recevie unkonwn action:${msg.action}`)
 			break
@@ -156,11 +158,6 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
 })
 
 async function successActivityRetrieval() {
-
-	if (!await checkLoginStatusValid()) {
-		taskDone()
-		return
-	}
 
 	runtime.doneTask = 1
 	runtime.totalTask = 100
@@ -312,7 +309,7 @@ async function loginStatusRetrieval(retry = 0) {
 		loginStatus.shortDescription = '检查超时'
 		loginStatus.status = USER_STATUS.UNKNOWN
 		loginStatus.timestamp = DateTime.local().valueOf()
-		notifications('检查登录状态失败，请检查网络状态后重试', 'login-fail', true)
+		notifications('检查登录状态失败，请检查网络状态后重试', 'login-fail', NOTIFICATION_LEVEL.INFO)
 		return false
 	}
 	const url = 'https://try.jd.com/'
@@ -326,7 +323,7 @@ async function loginStatusRetrieval(retry = 0) {
 		await storage.get({ autoLogin: false }).then(res => { autoLogin = res.autoLogin })
 
 		if (runtime.tryAutoLogin || !autoLogin) {
-			notifications('未检查到用户名，请手动登录', 'login-fail', true)
+			notifications('未检查到用户名，请手动登录', 'login-fail', NOTIFICATION_LEVEL.INFO)
 			return false
 		}
 
@@ -337,7 +334,7 @@ async function loginStatusRetrieval(retry = 0) {
 					accountInfo = false
 			})
 		if (!accountInfo) {
-			notifications('自动登录失败，未保存账号。请点击打开登录界面保存账号', 'login-fail', true)
+			notifications('自动登录失败，未保存账号。请点击打开登录界面保存账号', 'login-fail', NOTIFICATION_LEVEL.INFO)
 			return false
 		}
 
@@ -351,7 +348,7 @@ async function loginStatusRetrieval(retry = 0) {
 		const eventName = `login_status_retrieval_event`
 		const result = await openByIframeAndWaitForClose(url, eventName, IFRAME_LIFETIME)
 		if (result === TIMEOUT_ERROR || !result.login) {
-			notifications('自动登录失败，请手动登录', 'login-fail', true)
+			notifications('自动登录失败，请手动登录', 'login-fail', NOTIFICATION_LEVEL.INFO)
 
 			loginStatus.description = '自动登录失败，请手动登录'
 			loginStatus.shortDescription = '登录失败'
@@ -364,11 +361,6 @@ async function loginStatusRetrieval(retry = 0) {
 	return true
 }
 async function followVenderNumberRetrieval(showNotification = true) {
-
-	if (!await checkLoginStatusValid()) {
-		taskDone()
-		return
-	}
 
 	runtime.totalTask = 1
 	runtime.doneTask = 1
@@ -385,11 +377,6 @@ async function followVenderNumberRetrieval(showNotification = true) {
 }
 async function emptyFollowVenderList() {
 
-	if (!await checkLoginStatusValid()) {
-		taskDone()
-		return
-	}
-
 	runtime.doneTask = 0
 	runtime.totalTask = saveinfo.followVenderNum > 0 ? saveinfo.followVenderNum : 500
 
@@ -398,7 +385,6 @@ async function emptyFollowVenderList() {
 	await openByIframeAndWaitForClose(url, eventName, 5 * 60 * 1000) // 保留 iframe 五分钟
 	notifications(`已完成清理关注店铺列表，当前关注数量为${saveinfo.followVenderNum}`)
 	taskDone()
-
 }
 
 window.checkLoginStatusValid = async function () {
@@ -423,6 +409,11 @@ function taskDone() {
 window.runTask = async function (task, auto = false, applyTaskDone = false) {
 
 	console.log(`即将执行 ${task.title}`)
+
+	if (task.checkLogin && !await checkLoginStatusValid()) {
+		taskDone()
+		return
+	}
 
 	runtime.taskId = task.id
 	task.last_run_at = DateTime.local().valueOf()
@@ -491,9 +482,10 @@ async function autoRun(when) {
 	}
 	if (!await loginStatusRetrieval()) {
 		console.warn('自动执行失败，登录状态有误')
+		setTimeout(() => { autoRun(when) }, 60 * 60 * 1000)
 		return
 	}
-	updateNotificationPermission(false)
+	setNotificationLevel(NOTIFICATION_LEVEL.INFO)
 	const allTasks = await getAllTasks()
 
 	const now = DateTime.local()
@@ -519,7 +511,7 @@ async function autoRun(when) {
 		)
 	}
 	savePersistentData()
-	updateNotificationPermission(true)
+	setNotificationLevel(NOTIFICATION_LEVEL.NORMAL)
 }
 
 async function initScheduledTasks() {
@@ -591,6 +583,7 @@ export function updateBrowserAction(force = false) {
 window.onload = () => {
 	console.log(`${DateTime.local()} background.js loading`)
 	chrome.alarms.clearAll()
+	storage.get({ loginStatus: loginStatus }).then(res => { loginStatus = res.loginStatus })
 	storage.get({ saveinfo: saveinfo }).then(res => {
 		saveinfo = res.saveinfo
 		checkAndResetDailyInfo()

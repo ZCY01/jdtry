@@ -15,6 +15,7 @@ export const defaultTasks = [
 			frequency: 'nolimit',
 			taskLifetime: TEN_MINUTE,
 		},
+		checkLogin:true,
 	}, {
 		id: 1,
 		title: "清空关注列表",
@@ -27,6 +28,7 @@ export const defaultTasks = [
 			frequency: 'daily',
 			taskLifetime: HALF_HOUR,
 		},
+		checkLogin:true,
 	}, {
 		id: 2,
 		title: "搜索商品",
@@ -39,6 +41,7 @@ export const defaultTasks = [
 			frequency: 'daily',
 			taskLifetime: HALF_HOUR,
 		},
+		checkLogin:false,
 	}, {
 		id: 3,
 		title: "检索成功",
@@ -51,6 +54,7 @@ export const defaultTasks = [
 			frequency: 'nolimit',
 			taskLifetime: TEN_MINUTE
 		},
+		checkLogin:true,
 	}, {
 		id: 4,
 		title: "一键申请",
@@ -63,6 +67,7 @@ export const defaultTasks = [
 			frequency: 'daily',
 			taskLifetime: ONE_HOUR
 		},
+		checkLogin:true,
 	}
 ]
 

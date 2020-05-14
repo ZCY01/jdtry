@@ -10,7 +10,12 @@
             </span>
         </template>
     </van-cell>
-    <van-cell title="自动登录" center >
+    <van-cell title="高级设置" center>
+        <div>
+            <van-button plain hairline size="small" type="info" @click="clearSqlActivitys"> 清空商品列表 </van-button>
+        </div>
+    </van-cell>
+    <van-cell title="自动登录" center>
         <van-switch v-model="autoLogin" @change="switchStatusChange('login')"></van-switch>
     </van-cell>
 
@@ -23,6 +28,7 @@ import {
 } from "../static/utils"
 import {
     Toast,
+    Dialog
 } from 'vant'
 
 export default {
@@ -76,7 +82,17 @@ export default {
                     })
                 }, 2000)
             }
+        },
+        clearSqlActivitys() {
+            Dialog.confirm({
+                title: '是否要清空商品列表？'
+            }).then(() => {
+				chrome.runtime.sendMessage({
+					action: "bg_clear_sql_activitys",
+				})
+            }).catch(() => {})
         }
+
     }
 };
 </script>

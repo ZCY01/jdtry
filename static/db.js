@@ -1,6 +1,6 @@
 import Dexie from 'dexie'
 import { ACTIVITY_STATUS } from './config'
-import { notifications } from './utils'
+import { notifications, NOTIFICATION_LEVEL } from './utils'
 import { updateBrowserAction } from './background'
 
 
@@ -41,7 +41,7 @@ export async function getActivityItems(days = 20) {
 	await db.activityItems.where('timestamp').below(now).delete()
 	let items = await db.activityItems.where('timestamp')
 		.below(endTimeOnFurture)
-		.and(item=>{
+		.and(item => {
 			return !item.deleted
 		})
 		.sortBy('price')
@@ -69,7 +69,7 @@ export async function addSuccessActivityList(items) {
 		chrome.runtime.sendMessage({
 			action: "popup_update_success_activity",
 		})
-		notifications('恭喜！发现新的成功的商品！')
+		notifications('恭喜！发现新的成功的商品！', null, NOTIFICATION_LEVEL.INFO)
 		updateBrowserAction(true)
 	}
 }
@@ -80,18 +80,18 @@ export async function getSuccessActivityItems(days = 15) {
 	await db.successActivityItems.where('timestamp').below(now).delete()
 	let items = await db.successActivityItems.where('timestamp')
 		.below(endTime)
-		.and(item=>{
+		.and(item => {
 			return !item.deleted
 		})
 		.sortBy('timestamp')
 	return items.reverse()
 }
-export function deleteItems(option){
-	if(option.database === 'activity'){
+export function deleteItems(option) {
+	if (option.database === 'activity') {
 		db.activityItems.update(option.id, { deleted: true })
 	}
-	else{ //success
-		db.successActivityItems.update(option.id, { deleted: true})
+	else { //success
+		db.successActivityItems.update(option.id, { deleted: true })
 		updateBrowserAction(true)
 	}
 }
@@ -101,8 +101,16 @@ export function updateActivityItemsStatus(activityId) {
 		if (updated) {
 			console.log(`${activityId} status set to appyied`);
 		}
-		else if(typeof (activityId) !== 'number'){
+		else if (typeof (activityId) !== 'number') {
 			console.warn(`can not find ${activityId} activity, remember that id is Number, ${typeof (activityId)}`);
 		}
+	})
+}
+
+export function clearActivityItems() {
+	db.activityItems.clear().then(() => {
+		chrome.runtime.sendMessage({
+			action: "popup_update_activity",
+		})
 	})
 }

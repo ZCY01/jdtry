@@ -157,12 +157,18 @@ export function openByIframe(src, iframeid, lifetime = -1) {
 	return iframe
 }
 
-let notificationPermission = true
-export function updateNotificationPermission(status) {
-	notificationPermission = status
+export const NOTIFICATION_LEVEL={
+	ALL:0,
+	NORMAL:1,
+	INFO:2,
+	NONE:3
 }
-export function notifications(msg, id = null, force = false) {
-	if (!force && !notificationPermission) {
+let notificationLevel = NOTIFICATION_LEVEL.NORMAL
+export function setNotificationLevel(level) {
+	notificationLevel = level
+}
+export function notifications(msg, id = null, level = NOTIFICATION_LEVEL.NORMAL) {
+	if(level<notificationLevel){
 		return
 	}
 	if (id) {
