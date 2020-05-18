@@ -1,7 +1,6 @@
 import Dexie from 'dexie'
 import { ACTIVITY_STATUS } from './config'
 import { notifications, NOTIFICATION_LEVEL } from './utils'
-import { updateBrowserAction } from './background'
 
 
 //
@@ -70,7 +69,10 @@ export async function addSuccessActivityList(items) {
 			action: "popup_update_success_activity",
 		})
 		notifications('恭喜！发现新的成功的商品！', null, NOTIFICATION_LEVEL.INFO)
-		updateBrowserAction(true)
+		chrome.runtime.sendMessage({
+			action: "bg_update_browser_action",
+			force:true
+		})
 	}
 }
 
@@ -92,7 +94,10 @@ export function deleteItems(option) {
 	}
 	else { //success
 		db.successActivityItems.update(option.id, { deleted: true })
-		updateBrowserAction(true)
+		chrome.runtime.sendMessage({
+			action: "bg_update_browser_action",
+			force:true
+		})
 	}
 }
 

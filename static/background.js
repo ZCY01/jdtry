@@ -23,7 +23,7 @@ window.saveinfo = { //reset every day
 	applidActivityNum: 0,
 	fulfilled: false,
 	noMoreVender: false,
-	day: DateTime.local().day
+	day: -1
 }
 function savePersistentData() {
 	storage.set({ loginStatus: loginStatus })
@@ -150,6 +150,10 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
 			break
 		case 'bg_clear_sql_activitys':
 			clearActivityItems()
+			break
+
+		case 'bg_update_browser_action':
+			updateBrowserAction(msg.force)
 			break
 		default:
 			// console.log(`recevie unkonwn action:${msg.action}`)
@@ -456,7 +460,7 @@ window.runTask = async function (task, auto = false, applyTaskDone = false) {
 
 function checkAndResetDailyInfo() {
 	const day = DateTime.local().day
-	console.log(`reset daily info, today:${day}`)
+	console.log(`reset daily info, today:${day}, saveinfo.day:${saveinfo.day}`)
 	if (day !== saveinfo.day) {
 		saveinfo.day = day
 		saveinfo.fulfilled = false
@@ -469,7 +473,7 @@ function checkAndResetDailyInfo() {
 	chrome.alarms.create('daily', {
 		when: DateTime.local().plus({ day: 1 }).set({
 			hour: 0,
-			minute: 10,
+			minute: 1,
 			second: 0,
 		}).valueOf()
 	})
@@ -548,7 +552,7 @@ async function initScheduledTasks() {
 
 }
 
-export function updateBrowserAction(force = false) {
+function updateBrowserAction(force = false) {
 	const warmMsg = " ! "
 	chrome.browserAction.setBadgeBackgroundColor({
 		color: "#FF2800"
