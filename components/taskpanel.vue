@@ -126,7 +126,7 @@ export default {
             return `上次运行：${readableTime(time)}`
         },
         onSubmit(values) {
-            chrome.runtime.sendMessage({
+            sendMessage({
                 action: "bg_scheduled_task",
             })
             Object.assign(this.tasks[this.taskIndex].auto, values)

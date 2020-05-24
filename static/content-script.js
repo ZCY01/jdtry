@@ -358,6 +358,11 @@ function autoLogin() {
 }
 
 window.onload = () => {
+	if(document.body.innerText === '{"bottom":null}'){
+		console.warn('{"bottom":null}')
+		location.reload(true)
+	}
+
 	const HREF = window.location.href
 	console.log(`${HREF} 已加载`)
 

@@ -28,7 +28,7 @@ export async function addActivityItems(items) {
 		newSuccess = e.failures.length !== items.length
 	}
 	if (newSuccess) {
-		chrome.runtime.sendMessage({
+		sendMessage({
 			action: "popup_update_activity",
 		})
 	}
@@ -65,13 +65,13 @@ export async function addSuccessActivityList(items) {
 		newSuccess = e.failures.length !== items.length
 	}
 	if (newSuccess) {
-		chrome.runtime.sendMessage({
+		sendMessage({
 			action: "popup_update_success_activity",
 		})
 		notifications('恭喜！发现新的成功的商品！', null, NOTIFICATION_LEVEL.INFO)
-		chrome.runtime.sendMessage({
+		sendMessage({
 			action: "bg_update_browser_action",
-			force:true
+			force: true
 		})
 	}
 }
@@ -79,7 +79,17 @@ export async function addSuccessActivityList(items) {
 export async function getSuccessActivityItems(days = 15) {
 	const now = Date.now()
 	const endTime = now + 60 * 60 * 1000 * 24 * days
-	await db.successActivityItems.where('timestamp').below(now).delete()
+	await db.successActivityItems.where('timestamp')
+		.below(now)
+		.delete()
+		.then(deleted => {
+			if(deleted){
+				sendMessage({
+					action: "bg_update_browser_action",
+					force: true
+				})
+			}
+		})
 	let items = await db.successActivityItems.where('timestamp')
 		.below(endTime)
 		.and(item => {
@@ -94,9 +104,9 @@ export function deleteItems(option) {
 	}
 	else { //success
 		db.successActivityItems.update(option.id, { deleted: true })
-		chrome.runtime.sendMessage({
+		sendMessage({
 			action: "bg_update_browser_action",
-			force:true
+			force: true
 		})
 	}
 }
@@ -114,7 +124,7 @@ export function updateActivityItemsStatus(activityId) {
 
 export function clearActivityItems() {
 	db.activityItems.clear().then(() => {
-		chrome.runtime.sendMessage({
+		sendMessage({
 			action: "popup_update_activity",
 		})
 	})

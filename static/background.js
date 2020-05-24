@@ -76,8 +76,7 @@ chrome.notifications.onClicked.addListener(function (notificationId) {
 })
 
 // 消息处理
-
-chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
+function backgroundMessageListener(msg, sender, sendResponse) {
 	switch (msg.action) {
 		//from content-script
 		case 'bg_update_saveinfo':
@@ -97,7 +96,7 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
 				saveinfo.applidActivityNum++
 			}
 			emitter.emit(`${msg.activityId}_activity_applied_event`)
-			chrome.runtime.sendMessage({
+			sendMessage({
 				action: "popup_update_activity_status",
 				activityId: msg.activityId,
 				status: msg.status
@@ -156,10 +155,13 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
 			updateBrowserAction(msg.force)
 			break
 		default:
-			// console.log(`recevie unkonwn action:${msg.action}`)
+			if(msg.action.startsWith('popup')){
+				chrome.runtime.sendMessage(msg)
+			}
 			break
 	}
-})
+}
+chrome.runtime.onMessage.addListener(backgroundMessageListener)
 
 async function successActivityRetrieval() {
 
@@ -598,4 +600,12 @@ window.onload = () => {
 
 window.onunload = () => {
 	savePersistentData()
+}
+
+
+// chrome.runtime.sendMessage 调用者无法接收到 调用者发的 sendMessage 
+// 但是代码需要调用者收到调用者发送的 sendMessage...
+// 所以加一层
+window.sendMessage = function(msg){
+	backgroundMessageListener(msg)
 }
