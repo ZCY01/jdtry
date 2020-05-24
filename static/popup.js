@@ -102,3 +102,7 @@ window.onunload = ()=>{
 	popup.$destroy()
 	popup = null
 }
+
+window.sendMessage = function(msg){
+	chrome.runtime.sendMessage(msg)
+}

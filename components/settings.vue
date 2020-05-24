@@ -87,7 +87,7 @@ export default {
             Dialog.confirm({
                 title: '是否要清空商品列表？'
             }).then(() => {
-				chrome.runtime.sendMessage({
+				sendMessage({
 					action: "bg_clear_sql_activitys",
 				})
             }).catch(() => {})
