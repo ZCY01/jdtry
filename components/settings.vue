@@ -4,16 +4,25 @@
     <van-cell v-for="item in settings" :key="item.name" :title="item.text">
         <template #label>
             <span v-for="btn of item.btns" :key="btn.value">
-                <van-button :type="btn.selected?'info':'default'" @click="selected(btn)" class="settings-btn">
+                <van-button :type="btn.selected?'info':'default'" @click="selected(btn)" class="settings-btn" size="small">
                     {{btn.text}}
                 </van-button>
             </span>
         </template>
     </van-cell>
-    <van-cell title="高级设置" center>
+    <van-cell title="屏蔽关键字" center>
+        <template #label>
+            <van-tag v-for="tag in keywordMasks" :key="tag" closeable size="medium" type="primary" @close="close(tag)" class="tag">{{tag}} </van-tag>
+        </template>
         <div>
-            <van-button plain hairline size="small" type="info" @click="clearSqlActivitys"> 清空商品列表 </van-button>
+            <van-search v-model="inputTag" placeholder="回车确认" style="padding:0px" left-icon="" @clear="clear" @search="addMask"></van-search>
         </div>
+    </van-cell>
+    <van-cell title="最低价格(含)" center>
+        <van-search v-model="minPrice" placeholder="回车确认" style="padding:0px" left-icon="" @search="updateMinPrice"></van-search>
+    </van-cell>
+    <van-cell title="高级设置" center>
+        <van-button plain hairline size="small" type="info" @click="clearSqlActivitys"> 清空商品列表 </van-button>
     </van-cell>
     <van-cell title="自动登录" center>
         <van-switch v-model="autoLogin" @change="switchStatusChange('login')"></van-switch>
@@ -36,11 +45,19 @@ export default {
     data() {
         return {
             settings: [],
-            autoLogin: false
+            autoLogin: false,
+            keywordMasks: [],
+            inputTag: "",
+            minPrice: "0"
         };
     },
     mounted: function () {
-
+        storage.get({
+            minPrice: 0
+        }).then(res => this.minPrice = res.minPrice.toString())
+        storage.get({
+            keywordMasks: []
+        }).then(res => this.keywordMasks = res.keywordMasks)
         storage.get({
             settings: []
         }).then(res => this.settings = res.settings)
@@ -87,10 +104,60 @@ export default {
             Dialog.confirm({
                 title: '是否要清空商品列表？'
             }).then(() => {
-				sendMessage({
-					action: "bg_clear_sql_activitys",
-				})
+                sendMessage({
+                    action: "bg_clear_sql_activitys",
+                })
             }).catch(() => {})
+        },
+        close(tag) {
+            this.keywordMasks = this.keywordMasks.filter(t => {
+                return t !== tag
+            })
+            storage.set({
+                keywordMasks: this.keywordMasks
+            }).then(() => {
+                sendMessage({
+                    action: "popup_update_activity",
+                })
+            })
+        },
+        addMask(tag) {
+            tag = tag.trim()
+            if (this.keywordMasks.indexOf(tag) < 0) {
+                this.keywordMasks.push(tag)
+                storage.set({
+                    keywordMasks: this.keywordMasks
+                }).then(() => {
+                    sendMessage({
+                        action: "popup_update_activity",
+                    })
+                })
+            }
+            this.inputTag = ""
+        },
+        clear() {
+            this.inputTag = ""
+        },
+        updateMinPrice() {
+            this.minPrice.trim()
+            if (this.minPrice === '') {
+                this.minPrice = '0'
+            }
+            let price = parseFloat(this.minPrice)
+            if (isNaN(price)) {
+                Toast(`最小价格格式错误：${this.minPrice}`)
+                storage.get({
+                    minPrice: 0
+                }).then(res => this.minPrice = res.minPrice.toString())
+                return
+            }
+            storage.set({
+                minPrice: price
+            }).then(() => {
+                sendMessage({
+                    action: "popup_update_activity",
+                })
+            })
         }
 
     }

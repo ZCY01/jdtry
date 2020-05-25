@@ -1,6 +1,6 @@
 import { storage, emitter, openByIframeAndWaitForClose, TIMEOUT_ERROR, notifications, openByIframe, waitEventWithPromise, IFRAME_LIFETIME, setNotificationLevel, NOTIFICATION_LEVEL } from './utils'
 import { addActivityItems, updateActivityItemsStatus, addSuccessActivityList, getActivityItems, getSuccessActivityItems, clearActivityItems } from './db'
-import { settingConfig, USER_STATUS, ACTIVITY_STATUS } from './config'
+import { settingConfig, USER_STATUS, ACTIVITY_STATUS, INIT_KEYWORD_MASKS } from './config'
 import { updateTaskInfo, defaultTasks, getAllTasks } from './tasks'
 import { DateTime } from 'luxon'
 
@@ -32,6 +32,7 @@ function savePersistentData() {
 function reset() {
 	// console.log('reset now')
 	// chrome.storage.local.clear()
+	storage.set({keywordMasks:INIT_KEYWORD_MASKS})
 	storage.set({ settings: settingConfig })
 	for (let task of defaultTasks) {
 		updateTaskInfo(task)
@@ -605,7 +606,7 @@ window.onunload = () => {
 
 // chrome.runtime.sendMessage 调用者无法接收到 调用者发的 sendMessage 
 // 但是代码需要调用者收到调用者发送的 sendMessage...
-// 所以加一层
+// 需要消息机制来解耦...
 window.sendMessage = function(msg){
 	backgroundMessageListener(msg)
 }

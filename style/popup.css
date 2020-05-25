@@ -22,3 +22,8 @@ a {
 .tabbar__loading__text{
 	color:#1989fa
 }
+
+.tag{
+	margin-right: 2px;
+	margin-bottom: 2px;
+}
