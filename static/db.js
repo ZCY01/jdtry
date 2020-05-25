@@ -1,6 +1,6 @@
 import Dexie from 'dexie'
 import { ACTIVITY_STATUS } from './config'
-import { notifications, NOTIFICATION_LEVEL } from './utils'
+import { notifications, NOTIFICATION_LEVEL, storage } from './utils'
 
 
 //
@@ -38,10 +38,29 @@ export async function getActivityItems(days = 20) {
 	const now = Date.now()
 	const endTimeOnFurture = now + 60 * 60 * 1000 * 24 * days
 	await db.activityItems.where('timestamp').below(now).delete()
+
+	let minPrice
+	let keywordMasks
+	await storage.get({
+		keywordMasks: []
+	}).then(res => keywordMasks = res.keywordMasks)
+	await storage.get({
+		minPrice: 0
+	}).then(res => minPrice = res.minPrice)
+
 	let items = await db.activityItems.where('timestamp')
 		.below(endTimeOnFurture)
 		.and(item => {
-			return !item.deleted
+			// let num = parseInt(/提供(.*)份/.exec(item.detail)[1])
+			if (item.deleted) {
+				return false
+			}
+			for (let mask of keywordMasks) {
+				if (item.name.indexOf(mask) >= 0) {
+					return false
+				}
+			}
+			return item.price >= minPrice
 		})
 		.sortBy('price')
 	return items.reverse()
@@ -83,7 +102,7 @@ export async function getSuccessActivityItems(days = 15) {
 		.below(now)
 		.delete()
 		.then(deleted => {
-			if(deleted){
+			if (deleted) {
 				sendMessage({
 					action: "bg_update_browser_action",
 					force: true

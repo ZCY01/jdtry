@@ -108,3 +108,11 @@ export const USER_STATUS={
 	UNKNOWN:3,
 	LOGINING:4
 }
+
+export const INIT_KEYWORD_MASKS = [
+	"教程",
+	"软件",
+	"英语",
+	"辅导",
+	"培训",
+]

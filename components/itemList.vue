@@ -83,7 +83,9 @@ export default {
             this.$emit('filter', {
                 day: this.day,
                 filter: this.filter.replace(/^\s*|\s*$/g, "")
-            })
+			})
+			this.finished = false
+			this.page = 1
 		},
 		readableTime:readableTime
     }

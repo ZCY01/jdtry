@@ -221,7 +221,7 @@ export default {
             })
         },
         filterSqlActivityItems(msg) {
-            console.log(`sql ${msg}`)
+            console.log("filter", msg)
             if (this.activity.sql.filter !== msg.filter) {
                 this.activity.sql.filter = msg.filter
             }
