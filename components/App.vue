@@ -58,7 +58,6 @@ import {
 } from '../static/utils'
 import {
     Toast,
-    Dialog
 } from 'vant';
 
 import itemList from './itemList'
