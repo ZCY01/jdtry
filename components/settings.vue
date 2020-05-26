@@ -23,6 +23,7 @@
     </van-cell>
     <van-cell title="高级设置" center>
         <van-button plain hairline size="small" type="info" @click="clearSqlActivitys"> 清空商品列表 </van-button>
+        <van-button plain hairline size="small" type="info" @click="reset"> 复位 </van-button>
     </van-cell>
     <van-cell title="自动登录" center>
         <van-switch v-model="autoLogin" @change="switchStatusChange('login')"></van-switch>
@@ -158,8 +159,17 @@ export default {
                     action: "popup_update_activity",
                 })
             })
+        },
+        reset() {
+            Dialog.confirm({
+				title: '是否要复位？',
+				message: '复原所有的配置'
+            }).then(() => {
+                sendMessage({
+                    action: 'reset'
+                })
+            }).catch(() => {})
         }
-
     }
 };
 </script>
@@ -167,5 +177,8 @@ export default {
 <style scoped>
 .settings-btn {
     margin: 3px;
+    width: 74px;
+    height: 34px;
+    font-size: 13px;
 }
 </style>

@@ -155,6 +155,10 @@ function backgroundMessageListener(msg, sender, sendResponse) {
 		case 'bg_update_browser_action':
 			updateBrowserAction(msg.force)
 			break
+		case 'reset':
+			chrome.storage.local.clear()
+			chrome.runtime.reload()
+			break
 		default:
 			if(msg.action.startsWith('popup')){
 				chrome.runtime.sendMessage(msg)
