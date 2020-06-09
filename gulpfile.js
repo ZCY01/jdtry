@@ -4,6 +4,8 @@ const Bundler = require('parcel-bundler')
 const Path = require('path')
 const cleanCss = require('gulp-clean-css')
 const concat = require('gulp-concat')
+const replace = require('gulp-replace')
+process.env.VERSION = process.env.VERSION || "1.0.0"
 
 
 function watchFile() {
@@ -57,6 +59,7 @@ async function buildPopupScript() {
 	gulp.src([
 		'dist/popup.js',
 	])
+		.pipe(replace('{{version}}', process.env.VERSION))
 		.pipe(gulp.dest('build/static'))
 	return gulp.src([
 		'dist/popup.css',
@@ -80,6 +83,7 @@ async function moveConfigFile() {
 	gulp.src([
 		'manifest.json', '*.html'
 	])
+		.pipe(replace('{{version}}', process.env.VERSION))
 		.pipe(gulp.dest('build'))
 	return gulp.src([
 		'img/*'
