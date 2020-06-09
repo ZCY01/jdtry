@@ -8,7 +8,7 @@
                     <van-switch v-model="auto.run"></van-switch>
                 </template>
             </van-field>
-            <van-field name="when" label="时间/24H" >
+            <van-field name="when" label="时间/24H">
                 <template #input>
                     <van-stepper v-model="auto.when" min="0" max="23" />
                 </template>
@@ -34,14 +34,14 @@
             </div>
         </van-cell>
 
-    <van-cell center>
-        <template #title>
-            <div title="每日最多可申请300个试用商品" v-tippy>
-                每日份额
-            </div>
-        </template>
-        <van-circle v-model="rate" :text="text" size="80" layer-color="#ebedf0"></van-circle>
-    </van-cell>
+        <van-cell center>
+            <template #title>
+                <div title="每日最多可申请300个试用商品" v-tippy>
+                    每日份额
+                </div>
+            </template>
+            <van-circle v-model="rate" :text="text" size="80" layer-color="#ebedf0"></van-circle>
+        </van-cell>
 
     </van-cell-group>
 
@@ -49,7 +49,7 @@
         <van-divider>任务进度</van-divider>
         <van-progress :percentage="taskPercentage" stroke-width="8" style="width:100%"></van-progress>
     </div>
-	
+
 </div>
 </template>
 
@@ -66,7 +66,9 @@ import {
 import {
     readableTime
 } from '../static/utils'
-import {DateTime} from 'luxon'
+import {
+    DateTime
+} from 'luxon'
 
 export default {
     name: "taskpanel",
@@ -97,18 +99,20 @@ export default {
     },
     methods: {
         autoTaskInfo(task) {
-			if(task.auto.run !== true){
-				return ''
-			}
-			let now = DateTime.local()
-			if(now.hour >= task.auto.when){
-				now = now.plus({day:1})
-			}
-			now = now.set({
-				hour: task.auto.when,
-				minute: 0,
-				second: 0,
-			})
+            if (task.auto.run !== true) {
+                return ''
+            }
+            let now = DateTime.local()
+            if (now.hour >= task.auto.when) {
+                now = now.plus({
+                    day: 1
+                })
+            }
+            now = now.set({
+                hour: task.auto.when,
+                minute: 0,
+                second: 0,
+            })
             return `将运行于：${readableTime(now)}`
         },
         emit(task) {
@@ -130,6 +134,9 @@ export default {
                 action: "bg_scheduled_task",
             })
             Object.assign(this.tasks[this.taskIndex].auto, values)
+            this.tasks[this.taskIndex].last_run_at = DateTime.local().plus({
+                day: -1
+			}).valueOf()
             updateTaskInfo(this.tasks[this.taskIndex])
             Toast({
                 message: '保存成功',

@@ -2,7 +2,7 @@
 	// 清单文件的版本，这个必须写，而且必须是2
 	"manifest_version": 2,
 	"name": "jdtry",
-	"version": "1.0.0",
+	"version": "{{version}}",
 	"description": "jd try",
 	"icons": {
 		"16": "img/icon.png",
