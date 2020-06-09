@@ -41,7 +41,7 @@
             关注
         </van-tabbar-item>
         <van-tabbar-item title="点击查看本插件的全部代码" v-tippy icon="../img/github.png" @click="openGithub">
-            源代码
+			源代码{{currentVersion}}
         </van-tabbar-item>
     </van-tabbar>
 </div>
@@ -103,7 +103,8 @@ export default {
             runtime: bg.runtime,
             saveinfo: bg.saveinfo,
             USER_STATUS: USER_STATUS,
-            ACTIVITY_STATUS: ACTIVITY_STATUS,
+			ACTIVITY_STATUS: ACTIVITY_STATUS,
+			currentVersion:"{{version}}"
         }
     },
     destroyed() {

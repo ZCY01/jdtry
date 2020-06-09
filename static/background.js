@@ -488,11 +488,12 @@ function checkAndResetDailyInfo() {
 
 async function autoRun(when) {
 	if (runtime.taskId !== -1) {
+		console.log('自动执行失败，有任务正在进行，10分钟后重试')
 		setTimeout(() => { autoRun(when) }, 10 * 60 * 1000)
 		return
 	}
 	if (!await loginStatusRetrieval()) {
-		console.warn('自动执行失败，登录状态有误')
+		console.log('自动执行失败，登录状态有误，一个小时后重试')
 		setTimeout(() => { autoRun(when) }, 60 * 60 * 1000)
 		return
 	}
@@ -523,6 +524,7 @@ async function autoRun(when) {
 	}
 	savePersistentData()
 	setNotificationLevel(NOTIFICATION_LEVEL.NORMAL)
+	console.log(`auto run at ${when} done!`)
 }
 
 async function initScheduledTasks() {
