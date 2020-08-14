@@ -95,7 +95,7 @@ export default {
         },
         text() {
             return this.applidActivityNum + '/300'
-        },
+		},
     },
     methods: {
         autoTaskInfo(task) {
@@ -134,9 +134,9 @@ export default {
                 action: "bg_scheduled_task",
             })
             Object.assign(this.tasks[this.taskIndex].auto, values)
-            this.tasks[this.taskIndex].last_run_at = DateTime.local().plus({
-                day: -1
-			}).valueOf()
+            // this.tasks[this.taskIndex].last_run_at = DateTime.local().plus({
+            //     day: -1
+			// }).valueOf()
             updateTaskInfo(this.tasks[this.taskIndex])
             Toast({
                 message: '保存成功',

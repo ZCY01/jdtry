@@ -1,7 +1,7 @@
 import { storage, emitter, openByIframeAndWaitForClose, TIMEOUT_ERROR, notifications, openByIframe, waitEventWithPromise, IFRAME_LIFETIME, setNotificationLevel, NOTIFICATION_LEVEL } from './utils'
 import { addActivityItems, updateActivityItemsStatus, addSuccessActivityList, getActivityItems, getSuccessActivityItems, clearActivityItems } from './db'
 import { settingConfig, USER_STATUS, ACTIVITY_STATUS, INIT_KEYWORD_MASKS } from './config'
-import { updateTaskInfo, defaultTasks, getAllTasks } from './tasks'
+import { updateTaskInfo, defaultTasks, getAllTasks, commonTasks, TASK_ID} from './tasks'
 import { DateTime } from 'luxon'
 
 
@@ -9,8 +9,9 @@ window.runtime = {
 	taskId: -1,
 	doneTask: 0,
 	totalTask: 0,
-	tryAutoLogin: false,
 	applyingActivityIds: [],
+	taskQueue:[],
+	taskIdStack :[]
 }
 window.loginStatus = {
 	status: USER_STATUS.UNKNOWN,
@@ -32,7 +33,7 @@ function savePersistentData() {
 function reset() {
 	// console.log('reset now')
 	// chrome.storage.local.clear()
-	storage.set({keywordMasks:INIT_KEYWORD_MASKS})
+	storage.set({ keywordMasks: INIT_KEYWORD_MASKS })
 	storage.set({ settings: settingConfig })
 	for (let task of defaultTasks) {
 		updateTaskInfo(task)
@@ -50,7 +51,10 @@ chrome.alarms.onAlarm.addListener(function (alarm) {
 		case alarm.name.startsWith('scheduled_'):
 			console.log(alarm.name)
 			const when = alarm.name.split('_')[1]
-			autoRun(when)
+			getAutoTasks(when).then(runTask)
+			break
+		case alarm.name === 'leak_filling':
+			joinTaskInQueue(TASK_ID.ACTIVITY_APPLY, true)
 			break
 		default:
 			// console.warn(`unknown alarm:${alarm.name}`)
@@ -91,7 +95,7 @@ function backgroundMessageListener(msg, sender, sendResponse) {
 			break
 		case 'bg_activity_applied':
 			if (msg.status) {
-				updateActivityItemsStatus(msg.activityId)
+				updateActivityItemsStatus(msg.activityId, { status: ACTIVITY_STATUS.APPLIED })
 			}
 			if (msg.success) {
 				saveinfo.applidActivityNum++
@@ -113,17 +117,14 @@ function backgroundMessageListener(msg, sender, sendResponse) {
 			if (msg.activityList.length) {
 				addActivityItems(msg.activityList)
 			}
-			emitter.emit(msg.href + '_new_activity_retrieval_event')
-			break
-		case 'bg_page_num_retrieval':
-			emitter.emit(msg.href + '_pages_retrieval_event', { pageNum: msg.pageNum })
+			emitter.emit(msg.href + '_new_activity_retrieval_event', {pageNum:msg.pageNum})
 			break
 
 		case 'success_activity_retrieval':
 			if (msg.successActivityList.length !== 0) {
 				addSuccessActivityList(msg.successActivityList)
 			}
-			emitter.emit(msg.href + '_success_activity_retrieval_event')
+			emitter.emit(msg.href + '_success_activity_retrieval_event', {pageNum:msg.pageNum})
 			break
 		case 'bg_follow_vender_num_retrieval':
 			if (saveinfo.noMoreVender && msg.followVenderNum < saveinfo.followVenderNum) {
@@ -132,7 +133,7 @@ function backgroundMessageListener(msg, sender, sendResponse) {
 			saveinfo.followVenderNum = msg.followVenderNum
 			emitter.emit('bg_follow_vender_num_retrieval_event')
 
-			if (runtime.taskId === 1) { //清空关注列表
+			if (runtime.taskId === TASK_ID.EMPTY_FOLLOW_VENDER_LIST) { //清空关注列表
 				runtime.doneTask = runtime.totalTask - saveinfo.followVenderNum
 				if (saveinfo.followVenderNum === 0) {
 					emitter.emit('empty_follow_vender_list_event')
@@ -141,6 +142,11 @@ function backgroundMessageListener(msg, sender, sendResponse) {
 			break
 		case 'bg_get_login_status':
 			sendResponse(loginStatus)
+			break
+
+		case 'bg_task_opt':
+			const act = getTaskActionsByHref(msg.data)
+			sendResponse(act)
 			break
 
 		//from popup.html
@@ -160,7 +166,7 @@ function backgroundMessageListener(msg, sender, sendResponse) {
 			chrome.runtime.reload()
 			break
 		default:
-			if(msg.action.startsWith('popup')){
+			if (msg.action.startsWith('popup')) {
 				chrome.runtime.sendMessage(msg)
 			}
 			break
@@ -168,31 +174,85 @@ function backgroundMessageListener(msg, sender, sendResponse) {
 }
 chrome.runtime.onMessage.addListener(backgroundMessageListener)
 
-async function successActivityRetrieval() {
+function getTaskActionsByHref(data) {
 
-	runtime.doneTask = 1
-	runtime.totalTask = 100
-	console.log(`正在获取试用成功列表`)
-	let url = `https://try.jd.com/user/myTrial?page=1&selected=2`
-	let pageNum = await pageNumberRetrieval(url)
-	console.log(`试用成功列表 一共 ${pageNum} 页`)
-	runtime.totalTask = pageNum ? pageNum : 1
-
-	for (let i = 2; i <= pageNum; i++) {
-		runtime.doneTask++
-		url = `https://try.jd.com/user/myTrial?page=${i}&selected=2`
-		const eventName = `${url}_success_activity_retrieval_event`
-		await openByIframeAndWaitForClose(url, eventName)
+	const now = DateTime.local().valueOf()
+	const href = data.href
+	for (let task of defaultTasks) {
+		if (task.id !== runtime.taskId) continue
+		for (let ptn of task.href_patterns) {
+			if (href.search(ptn) >= 0) { //&& now >= task.last_run_at + task.auto.frequency){
+				return task.actions
+			}
+		}
 	}
-
-	taskDone()
-	notifications('成功项目的检索完毕')
+	for (let task of commonTasks) {
+		for (let ptn of task.href_patterns) {
+			if (href.search(ptn) >= 0) {
+				return task.actions
+			}
+		}
+	}
+	return undefined
 }
 
 
-async function activityRetrieval() {
+// ---------------- 获取关注店铺数量 ----------------//
+async function followVenderNumberRetrieval() {
+	console.log(`followVenderNumberRetrieval`)
+
+	switchTaskId(TASK_ID.FOLLOW_VENDER_NUM_RETRIEVAL)
+	runtime.totalTask = 1
+	runtime.doneTask = 1
+	const url = 'https://t.jd.com/follow/vender/list.do?index=1'
+	const eventName = 'bg_follow_vender_num_retrieval_event'
+	const result = await openByIframeAndWaitForClose(url, eventName, IFRAME_LIFETIME * 2)
+	if (result === TIMEOUT_ERROR) {
+		notifications('获取关注数量超时')
+	}
+	else{
+		notifications(`获取关注数量完成，一共关注了${saveinfo.followVenderNum}个店铺`)
+	}
+	taskDone()
+}
+
+// ---------------- 清空关注店铺 ----------------//
+async function emptyFollowVenderList() {
+	switchTaskId(TASK_ID.EMPTY_FOLLOW_VENDER_LIST)
 	runtime.doneTask = 0
-	runtime.totalTask = 100
+	runtime.totalTask = saveinfo.followVenderNum > 0 ? saveinfo.followVenderNum : 500
+
+	const url = 'https://t.jd.com/follow/vender/list.do'
+	const eventName = 'empty_follow_vender_list_event'
+	await openByIframeAndWaitForClose(url, eventName, 5 * 60 * 1000) // 保留 iframe 五分钟
+	notifications(`已完成清理关注店铺列表，当前关注数量为${saveinfo.followVenderNum}`)
+	taskDone()
+}
+
+// ---------------- 获取成功列表 ----------------//
+async function successActivityRetrieval() {
+
+	switchTaskId(TASK_ID.SUCCESS_ACTIVITY_RETRIEVAL)
+	runtime.doneTask = 0
+	runtime.totalTask = 1
+
+	for (let i = 1; i <= runtime.totalTask; i++) {
+		runtime.doneTask++
+		const url = `https://try.jd.com/user/myTrial?page=${i}&selected=2`
+		const eventName = `${url}_success_activity_retrieval_event`
+		let res = await openByIframeAndWaitForClose(url, eventName)
+		if(res == TIMEOUT_ERROR){
+			continue
+		}
+		runtime.totalTask = res.pageNum
+	}
+	notifications('成功项目的检索完毕')
+	taskDone()
+}
+
+
+// ---------------- 获取试用列表 ----------------//
+async function activityRetrieval() {
 
 	//实际上，商品检索并不需要登录
 	//所以这里不检查登录状态
@@ -222,7 +282,11 @@ async function activityRetrieval() {
 	if (!activityTypeList.length) {
 		activityTypeList.push(null)
 	}
+
+	switchTaskId(TASK_ID.ACTIVITY_RETRIEVAL)
+	runtime.doneTask = 0
 	runtime.totalTask = cidsList.length * activityTypeList.length
+
 
 	for (let cids of cidsList) {
 		for (let activityType of activityTypeList) {
@@ -230,52 +294,54 @@ async function activityRetrieval() {
 			await activityRetrievalByCondition(cids, activityType)
 		}
 	}
-	taskDone()
 	console.log('本次搜索完毕')
 	notifications('搜索并导入数据库完毕')
+	taskDone()
 }
 
 
 async function activityRetrievalByCondition(cids, activityType) {
 	console.log(`正在获取 cids:${cids} activityType:${activityType} 类型商品`)
-	let url = `https://try.jd.com/activity/getActivityList?page=1${cids ? '&cids=' + cids : ''}${activityType ? '&activityType=' + activityType : ''}`
-	let pageNum = await pageNumberRetrieval(url)
-	console.log(`cids:${cids} activityType:${activityType} 一共 ${pageNum} 页`)
+	let pageNum = 1
 
-	for (let i = 2; i <= pageNum; i++) {
-		url = `https://try.jd.com/activity/getActivityList?page=${i}${cids ? '&cids=' + cids : ''}${activityType ? '&activityType=' + activityType : ''}`
+	for (let i = 1; i <= pageNum; i++) {
+		const url = `https://try.jd.com/activity/getActivityList?page=${i}${cids ? '&cids=' + cids : ''}${activityType ? '&activityType=' + activityType : ''}`
 		const eventName = `${url}_new_activity_retrieval_event`
-		await openByIframeAndWaitForClose(url, eventName)
-	}
-	return true
-}
-window.activityApply = async function (activity) {
-
-	const unSatisfyCondition = async () => {
-		let msg
-
-		if (!await checkLoginStatusValid()) {
-			msg = '用户未登录，商品试用执行结束'
+		let res = await openByIframeAndWaitForClose(url, eventName)
+		if(res === TIMEOUT_ERROR){
+			continue
 		}
+		pageNum = res.pageNum
+	}
+}
+
+// ---------------- 商品试用申请 ----------------//
+async function activityApply(activity){
+
+	if(activity === undefined){
+		const items = await getActivityItems(1)
+		activity = items.filter(item => {
+			return item.status === ACTIVITY_STATUS.APPLY
+		})
+	}
+
+	const unSatisfyCondition = ()=> {
 		if (saveinfo.fulfilled) {
-			msg = '今日申请试用份额已满，不再进行试用申请'
-			followVenderNumberRetrieval(false)
+			notifications('今日申请试用份额已满，不再进行试用申请')
+			return true
 		}
 		if (saveinfo.noMoreVender) {
-			msg = '关注数超过上限了哦，请及时清理'
+			notifications('关注数超过上限了哦，请及时清理')
+			return true
 		}
-		if (msg) {
-			taskDone()
-			notifications(msg)
-			runtime.applyingActivityIds.length = 0
-		}
-		return msg !== undefined
+		return false
 	}
 
-	if (await unSatisfyCondition()) {
+	if (unSatisfyCondition()) {
 		return
 	}
 
+	switchTaskId(TASK_ID.ACTIVITY_APPLY)
 	runtime.doneTask = 0
 	runtime.totalTask = activity.length ? activity.length : 1
 	console.log(`即将申请 ${activity.length} 个商品`)
@@ -289,31 +355,30 @@ window.activityApply = async function (activity) {
 
 	for (const item of activity) {
 		const eventName = `${item.id}_activity_applied_event`
+
+		let cnt = 1
+		if(item.try) cnt = item.try + 1
+		updateActivityItemsStatus(item.id, {try:cnt})
+
 		await openByIframeAndWaitForClose(item.url, eventName)
 		runtime.applyingActivityIds.shift()
 
 		runtime.doneTask++
-		if (await unSatisfyCondition()) {
-			return  // 这里直接返回即可，已经调用taskdone
+		if (unSatisfyCondition()) {
+			break
 		}
 	}
 
 	console.log('商品试用执行完毕')
 	if (activity.length > 1) {
 		notifications(`申请完毕，今日已申请${saveinfo.applidActivityNum}个商品`)
-		followVenderNumberRetrieval(false)
 	}
 
-	taskDone()
 	runtime.applyingActivityIds.length = 0
+	taskDone()
 }
 
-async function pageNumberRetrieval(url) {
-	const eventName = `${url}_pages_retrieval_event`
-	const result = await openByIframeAndWaitForClose(url, eventName)
-	return result === TIMEOUT_ERROR ? 0 : result.pageNum
-}
-
+// ---------------- 获取登陆状态 ----------------//
 async function loginStatusRetrieval(retry = 0) {
 	if (retry >= 2) { // 最多重试两次
 		loginStatus.description = '请检查网络状态'
@@ -323,82 +388,21 @@ async function loginStatusRetrieval(retry = 0) {
 		notifications('检查登录状态失败，请检查网络状态后重试', 'login-fail', NOTIFICATION_LEVEL.INFO)
 		return false
 	}
+
+	switchTaskId(TASK_ID.CHECK_OR_DO_LOGIN_OPT)
 	const url = 'https://try.jd.com/'
 	const eventName = `login_status_retrieval_event`
 	const result = await openByIframeAndWaitForClose(url, eventName, IFRAME_LIFETIME)
+	taskDone()
+
 	if (result === TIMEOUT_ERROR) {
 		return loginStatusRetrieval(retry + 1)
 	}
-	else if (!result.login) {
-		let autoLogin
-		await storage.get({ autoLogin: false }).then(res => { autoLogin = res.autoLogin })
-
-		if (runtime.tryAutoLogin || !autoLogin) {
-			notifications('未检查到用户名，请手动登录', 'login-fail', NOTIFICATION_LEVEL.INFO)
-			return false
-		}
-
-		let accountInfo = true
-		await storage.get({ account: { username: '', password: '' } })
-			.then(res => {
-				if (!res.account.username || !res.account.password)
-					accountInfo = false
-			})
-		if (!accountInfo) {
-			notifications('自动登录失败，未保存账号。请点击打开登录界面保存账号', 'login-fail', NOTIFICATION_LEVEL.INFO)
-			return false
-		}
-
-		runtime.tryAutoLogin = true
-		loginStatus.description = '正在自动登录'
-		loginStatus.shortDescription = '正在登录'
-		loginStatus.status = USER_STATUS.LOGINING
-		loginStatus.timestamp = 0
-
-		const url = 'https://passport.jd.com/new/login.aspx'
-		const eventName = `login_status_retrieval_event`
-		const result = await openByIframeAndWaitForClose(url, eventName, IFRAME_LIFETIME)
-		if (result === TIMEOUT_ERROR || !result.login) {
-			notifications('自动登录失败，请手动登录', 'login-fail', NOTIFICATION_LEVEL.INFO)
-
-			loginStatus.description = '自动登录失败，请手动登录'
-			loginStatus.shortDescription = '登录失败'
-			loginStatus.status = USER_STATUS.LOGOUT
-			loginStatus.timestamp = DateTime.local().valueOf()
-
-			return false
-		}
-	}
-	return true
-}
-async function followVenderNumberRetrieval(showNotification = true) {
-
-	runtime.totalTask = 1
-	runtime.doneTask = 1
-	const url = 'https://t.jd.com/follow/vender/list.do?index=1'
-	const eventName = 'bg_follow_vender_num_retrieval_event'
-	const result = await openByIframeAndWaitForClose(url, eventName, IFRAME_LIFETIME * 2)
-	if (showNotification && result === TIMEOUT_ERROR) {
-		notifications('获取关注数量超时')
-	}
-	else if (showNotification) {
-		notifications(`获取关注数量完成，一共关注了${saveinfo.followVenderNum}个店铺`)
-	}
-	taskDone()
-}
-async function emptyFollowVenderList() {
-
-	runtime.doneTask = 0
-	runtime.totalTask = saveinfo.followVenderNum > 0 ? saveinfo.followVenderNum : 500
-
-	const url = 'https://t.jd.com/follow/vender/list.do'
-	const eventName = 'empty_follow_vender_list_event'
-	await openByIframeAndWaitForClose(url, eventName, 5 * 60 * 1000) // 保留 iframe 五分钟
-	notifications(`已完成清理关注店铺列表，当前关注数量为${saveinfo.followVenderNum}`)
-	taskDone()
+	return result.login
 }
 
-window.checkLoginStatusValid = async function () {
+async function checkLoginStatusValid() {
+	console.log(`checkLoginStatusValid`)
 	if (loginStatus.status !== USER_STATUS.LOGIN
 		|| DateTime.local().valueOf() > loginStatus.timestamp + 30 * 60 * 1000) {//半小时
 
@@ -412,58 +416,6 @@ window.checkLoginStatusValid = async function () {
 	}
 	return true
 }
-function taskDone() {
-	runtime.taskId = -1
-	savePersistentData()
-	setTimeout(() => emitter.emit('taskDone'), 0) // 避免还没 wait 就发送了。。。
-}
-window.runTask = async function (task, auto = false, applyTaskDone = false) {
-
-	console.log(`即将执行 ${task.title}`)
-
-	if (task.checkLogin && !await checkLoginStatusValid()) {
-		taskDone()
-		return
-	}
-
-	runtime.taskId = task.id
-	task.last_run_at = DateTime.local().valueOf()
-	updateTaskInfo(task)
-	switch (task.action) {
-		case 'follow_vender_num_retrieval':
-			followVenderNumberRetrieval()
-			break
-		case 'empty_follow_vender_list':
-			if (auto && applyTaskDone) {   //避免当天关注当天取关
-				console.log('自动清理关注店铺任务暂停')
-				taskDone()
-				break
-			}
-			if (auto && saveinfo.followVenderNum < 250) {   //避免当天关注当天取关
-				console.log(`当前关注为：${saveinfo.followVenderNum}，仍有足够名额`)
-				taskDone()
-				break
-			}
-			emptyFollowVenderList()
-			break
-		case 'activity_retrieval':
-			activityRetrieval()
-			break
-		case 'success_activity_retrieval':
-			successActivityRetrieval()
-			break
-		case 'activity_apply':
-			const items = await getActivityItems(1)
-			const activity = items.filter(item => {
-				return item.status === ACTIVITY_STATUS.APPLY
-			})
-			activityApply(activity)
-			break
-		default:
-			taskDone()
-			break
-	}
-}
 
 function checkAndResetDailyInfo() {
 	const day = DateTime.local().day
@@ -472,11 +424,10 @@ function checkAndResetDailyInfo() {
 		saveinfo.day = day
 		saveinfo.fulfilled = false
 		saveinfo.applidActivityNum = 0
-		runtime.tryAutoLogin = false
 		initScheduledTasks()
 	}
 
-	chrome.alarms.clear('daily')
+	chrome.alarms.clear('leak_filling')
 	chrome.alarms.create('daily', {
 		when: DateTime.local().plus({ day: 1 }).set({
 			hour: 0,
@@ -485,47 +436,117 @@ function checkAndResetDailyInfo() {
 		}).valueOf()
 	})
 }
+window.joinTaskInQueue = function(task, run=false, data={}){
+	let id = task
+	if(typeof (task) === 'object'){
+		task.last_run_at = DateTime.local().valueOf()
+		updateTaskInfo(task)
+		id = task.id
+	}
+	switch (id) {
+		case TASK_ID.FOLLOW_VENDER_NUM_RETRIEVAL:
+			runtime.taskQueue.push(checkLoginStatusValid)
+			runtime.taskQueue.push(followVenderNumberRetrieval)
+			break
+		case TASK_ID.EMPTY_FOLLOW_VENDER_LIST:
+			runtime.taskQueue.push(checkLoginStatusValid)
+			runtime.taskQueue.push(emptyFollowVenderList)
+			break
+		case TASK_ID.ACTIVITY_RETRIEVAL:
+			runtime.taskQueue.push(activityRetrieval)
+			break
+		case TASK_ID.SUCCESS_ACTIVITY_RETRIEVAL:
+			runtime.taskQueue.push(checkLoginStatusValid)
+			runtime.taskQueue.push(successActivityRetrieval)
+			break
+		case TASK_ID.ACTIVITY_APPLY:
+			if(data.activity){
+				runtime.taskQueue.push(async ()=>{await activityApply(data.activity)})
+			}
+			else{
+				runtime.taskQueue.push(checkLoginStatusValid)
+				runtime.taskQueue.push(activityApply)
+				runtime.taskQueue.push(followVenderNumberRetrieval)
+			}
+			break
+		case TASK_ID.CHECK_OR_DO_LOGIN_OPT:
+			runtime.taskQueue.push(checkLoginStatusValid)
+		default:
+			break
+	}
+	if(run){
+		runTask()
+	}
+}
 
-async function autoRun(when) {
-	if (runtime.taskId !== -1) {
-		console.log('自动执行失败，有任务正在进行，10分钟后重试')
-		setTimeout(() => { autoRun(when) }, 10 * 60 * 1000)
-		return
-	}
-	if (!await loginStatusRetrieval()) {
-		console.log('自动执行失败，登录状态有误，一个小时后重试')
-		setTimeout(() => { autoRun(when) }, 60 * 60 * 1000)
-		return
-	}
-	setNotificationLevel(NOTIFICATION_LEVEL.INFO)
+async function getAutoTasks(when) {
+	
+	runtime.taskQueue.push(loginStatusRetrieval)
+	runtime.taskQueue.push(()=>{setNotificationLevel(NOTIFICATION_LEVEL.INFO)})
+	
 	const allTasks = await getAllTasks()
 
 	const now = DateTime.local()
-	const applyTask = allTasks.filter(task => { return task.action === 'activity_apply' })[0]
-	const applyTaskDone = now.day === DateTime.fromMillis(applyTask.last_run_at).day
 
 	for (let task of allTasks) {
-		if (task.auto.run !== true || when != task.auto.when) { // use !=
+		if (task.auto.run !== true || when != task.auto.when) { // must use !=
 			continue
 		}
 		if (task.auto.frequency === 'daily' && now.day === DateTime.fromMillis(task.last_run_at).day) {
 			console.log('当天已执行 ', task)
 			continue  //已经执行过了
 		}
-		console.log('即将自动执行', task)
-		setTimeout(() => runTask(task, true, applyTaskDone), 0)
-		// await waitEventWithPromise('taskDone', task.auto.taskLifetime).catch(
-		await waitEventWithPromise('taskDone', 2 * 60 * 60 * 1000).catch( // 等待两个小时。实际上不会等待这么久。
-			err => {
-				console.warn(`有bug, ${task.title} 调用 taskDone 了吗？！！！`)
-				taskDone()
-			}
-		)
+		joinTaskInQueue(task)
+
+		// 一个小时后，尝试再次执行 ACTIVITY_APPLY
+		if(task.id === TASK_ID.ACTIVITY_APPLY){
+			chrome.alarms.create('leak_filling', {
+				when: DateTime.local().plus({ hour: 2 }) .valueOf()
+			})
+		}
+
+
+	}
+	runtime.taskQueue.push(()=>{setNotificationLevel(NOTIFICATION_LEVEL.NORMAL)})
+	console.log(`join all task in taskQueue`)
+}
+
+window.runTask = async function(){
+	if(runtime.taskQueue.length === 0 || runtime.taskId !== -1){
+		console.log(`runtask err, taskQueue.length:${runtime.taskQueue.length}, taskId:${runtime.taskId}`)
+		return
+	}
+
+	switchTaskId(TASK_ID.RUNNING)
+	while(runtime.taskQueue.length !== 0){
+		const task = runtime.taskQueue.shift()
+		if(await task() === false){
+			console.warn(task)
+			console.warn(`任务执行失败`)
+			runtime.taskQueue.length = 0
+		}
+	}
+	taskDone()
+}
+
+function switchTaskId(taskId){
+	runtime.taskIdStack.push(runtime.taskId)
+	runtime.taskId = taskId
+}
+function taskDone() {
+	console.log(`taskid: ${runtime.taskId} done`)
+	if(runtime.taskIdStack.length){
+		runtime.taskId = runtime.taskIdStack.pop()
+	}
+	else{
+		console.warn(`runtime.taskIdStack empty`)
+		runtime.taskId = -1
 	}
 	savePersistentData()
-	setNotificationLevel(NOTIFICATION_LEVEL.NORMAL)
-	console.log(`auto run at ${when} done!`)
+	emitter.emit('taskDone')
 }
+
+//------------------------------------------------------------------//
 
 async function initScheduledTasks() {
 	//每次加载插件会执行一次
@@ -609,10 +630,9 @@ window.onunload = () => {
 	savePersistentData()
 }
 
-
 // chrome.runtime.sendMessage 调用者无法接收到 调用者发的 sendMessage 
 // 但是代码需要调用者收到调用者发送的 sendMessage...
 // 需要消息机制来解耦...
-window.sendMessage = function(msg){
+window.sendMessage = function (msg) {
 	backgroundMessageListener(msg)
 }

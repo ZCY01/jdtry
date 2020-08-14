@@ -1,5 +1,4 @@
 import Dexie from 'dexie'
-import { ACTIVITY_STATUS } from './config'
 import { notifications, NOTIFICATION_LEVEL, storage } from './utils'
 
 
@@ -60,6 +59,7 @@ export async function getActivityItems(days = 20) {
 					return false
 				}
 			}
+			if(item.try) return item.try<3
 			return item.price >= minPrice
 		})
 		.sortBy('price')
@@ -130,12 +130,9 @@ export function deleteItems(option) {
 	}
 }
 
-export function updateActivityItemsStatus(activityId) {
-	db.activityItems.update(activityId, { status: ACTIVITY_STATUS.APPLIED }).then(function (updated) {
-		if (updated) {
-			console.log(`${activityId} status set to appyied`);
-		}
-		else if (typeof (activityId) !== 'number') {
+export function updateActivityItemsStatus(activityId, data) {
+	db.activityItems.update(activityId, data).then(function (updated) {
+		if (!updated && typeof (activityId) !== 'number') {
 			console.warn(`can not find ${activityId} activity, remember that id is Number, ${typeof (activityId)}`);
 		}
 	})

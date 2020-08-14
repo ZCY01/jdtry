@@ -71,7 +71,7 @@ import {
     readableTime
 } from '../static/utils'
 import {
-    updateTaskInfo
+    updateTaskInfo, TASK_ID
 } from '../static/tasks'
 
 const bg = chrome.extension.getBackgroundPage()
@@ -134,9 +134,10 @@ export default {
 
         this.renderSqlActivityItems()
         this.renderSuccessActivityItems()
-        if (this.loginStatus.status === USER_STATUS.UNKNOWN ||
-            this.loginStatus.status === USER_STATUS.LOGOUT) {
-            // bg.checkLoginStatusValid()
+        if (this.loginStatus.status === USER_STATUS.UNKNOWN
+			// ||this.loginStatus.status === USER_STATUS.LOGOUT
+			) {
+            bg.joinTaskInQueue(TASK_ID.CHECK_OR_DO_LOGIN_OPT, true)
         }
     },
     computed: {
@@ -185,8 +186,8 @@ export default {
     },
     methods: {
         activityApply(activity) {
-            Toast(`即将执行 ${activity.id} 任务`)
-            bg.activityApply([activity])
+			Toast(`即将执行 ${activity.id} 任务`)
+			bg.joinTaskInQueue(TASK_ID.ACTIVITY_APPLY, true, {activity:[activity]})
         },
         deleteActivityItem(activityItem) {
             this.activity.sql.items = this.activity.sql.items.filter(item => item.id !== activityItem.id)
@@ -243,7 +244,7 @@ export default {
         checkLoginStatus() {
             switch (this.loginStatus.status) {
                 case this.USER_STATUS.UNKNOWN:
-                    bg.checkLoginStatusValid()
+                    bg.joinTaskInQueue(TASK_ID.CHECK_OR_DO_LOGIN_OPT, true)
                     break
                 case this.USER_STATUS.LOGOUT:
                     chrome.tabs.create({
@@ -268,25 +269,10 @@ export default {
             //     Toast('未登录！请手动登录！')
             //     return
             // }
-            if (this.runtime.taskId !== -1) {
-                Toast('有任务正在执行')
-                return
-            }
-            this.runtime.taskId = task.id
-            task.last_run_at = Date.now()
-            updateTaskInfo(task)
-            switch (task.action) {
-                case 'activity_apply':
-                    const activity = this.activeSqlActivityItems.filter(item => {
-                        return item.status === ACTIVITY_STATUS.APPLY
-                    })
-                    Toast(`即将申请 ${activity.length} 个试用商品`)
-                    bg.activityApply(activity)
-                    break
-                default:
-                    bg.runTask(task)
-                    break
-            }
+            if (this.runtime.taskId !== -1){
+                Toast(`${task.title} 已加入任务队列`)
+			}
+			bg.joinTaskInQueue(task, true)
         }
     }
 }
