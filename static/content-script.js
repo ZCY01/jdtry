@@ -30,7 +30,7 @@ const task_opts = {
 		return true
 	},
 
-	async check_login_status() {
+	async check_login_status(open_link_login=true) {
 		if (document.querySelector("#ttbar-login") === null) { // 检查不到用户登录状态
 			return undefined
 		}
@@ -47,7 +47,8 @@ const task_opts = {
 			loginStatus.description = `${document.querySelector('.nickname').innerText}`
 			loginStatus.shortDescription = '已登录'
 		}
-		else if(document.querySelector('.link-login')
+		else if( open_link_login
+			&& document.querySelector('.link-login')
 			&& document.querySelector('.link-login') === "你好，请登录"){
 
 			let res = await storage.get({ autoLogin: false })
@@ -381,6 +382,7 @@ window.onload = () => {
 		if (document.querySelector('.login-tab.login-tab-r')) {
 			insert_auto_login_btn()
 		}
+		task_opts.check_login_status(false)
 		return
 	}
 

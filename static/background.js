@@ -54,7 +54,10 @@ chrome.alarms.onAlarm.addListener(function (alarm) {
 			getAutoTasks(when).then(runTask)
 			break
 		case alarm.name === 'leak_filling':
-			joinTaskInQueue(TASK_ID.ACTIVITY_APPLY, true)
+			runtime.taskQueue.push(()=>{setNotificationLevel(NOTIFICATION_LEVEL.INFO)})
+			joinTaskInQueue(TASK_ID.ACTIVITY_APPLY)
+			runtime.taskQueue.push(()=>{setNotificationLevel(NOTIFICATION_LEVEL.NORMAL)})
+			runTask()
 			break
 		default:
 			// console.warn(`unknown alarm:${alarm.name}`)
@@ -437,6 +440,8 @@ function checkAndResetDailyInfo() {
 	})
 }
 window.joinTaskInQueue = function(task, run=false, data={}){
+	console.log(`joinTaskInQueue`)
+	console.log(task)
 	let id = task
 	if(typeof (task) === 'object'){
 		task.last_run_at = DateTime.local().valueOf()
@@ -498,10 +503,10 @@ async function getAutoTasks(when) {
 		}
 		joinTaskInQueue(task)
 
-		// 一个小时后，尝试再次执行 ACTIVITY_APPLY
+		// 两个半小时候后，尝试再次执行 ACTIVITY_APPLY
 		if(task.id === TASK_ID.ACTIVITY_APPLY){
 			chrome.alarms.create('leak_filling', {
-				when: DateTime.local().plus({ hour: 2 }) .valueOf()
+				when: DateTime.local().plus({ hour: 2, minute:30}) .valueOf()
 			})
 		}
 
