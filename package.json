@@ -10,7 +10,7 @@
   "dependencies": {
     "@vant/touch-emulator": "^1.2.0",
     "babel-plugin-transform-runtime": "^6.23.0",
-    "dexie": "^2.0.4",
+    "dexie": "^3.2.2",
     "gulp": "^4.0.2",
     "gulp-clean-css": "^4.3.0",
     "gulp-concat": "^2.6.1",
