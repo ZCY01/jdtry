@@ -4534,10 +4534,10 @@ lru-cache@^4.1.2:
     pseudomap "^1.0.2"
     yallist "^2.1.2"
 
-luxon@^1.23.0:
-  version "1.23.0"
-  resolved "https://registry.npm.taobao.org/luxon/download/luxon-1.23.0.tgz#23b748ad0f2d5494dc4d2878c19278c1e651410c"
-  integrity sha1-I7dIrQ8tVJTcTSh4wZJ4weZRQQw=
+luxon@^1.28.1:
+  version "1.28.1"
+  resolved "https://registry.yarnpkg.com/luxon/-/luxon-1.28.1.tgz#528cdf3624a54506d710290a2341aa8e6e6c61b0"
+  integrity sha512-gYHAa180mKrNIUJCbwpmD0aTu9kV0dREDrwNnuyFAsO1Wt0EVYSZelPnJlbj9HplzXX/YWXHFTL45kvZ53M0pw==
 
 magic-string@^0.22.4:
   version "0.22.5"

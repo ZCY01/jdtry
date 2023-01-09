@@ -16,7 +16,7 @@
     "gulp-concat": "^2.6.1",
     "gulp-replace": "^1.0.0",
     "gulp-watch": "^5.0.1",
-    "luxon": "^1.23.0",
+    "luxon": "^1.28.1",
     "parcel-bundler": "^1.12.4",
     "tippy.js": "^6.1.0",
     "vant": "^2.5.8",
